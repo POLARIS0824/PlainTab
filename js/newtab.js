@@ -1274,6 +1274,14 @@
             hideSearchHistory();
             return;
         }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            // always 模式下保持聚焦：失焦会让下一次打字回到 IME 首字母竞态；
+            // hover 模式保留失焦以收回搜索栏。
+            if (SP.getSearchMode() !== 'always') searchInput.blur();
+            return;
+        }
         if (e.key === 'Enter' && searchHistoryVisible && searchHistoryIndex >= 0 && searchHistoryMatches[searchHistoryIndex]) {
             e.preventDefault();
             e.stopPropagation();
@@ -1454,10 +1462,48 @@
             e.target.closest('button, input, textarea, select, [contenteditable="true"], .settings-panel, .language-panel, .modal-overlay, .cmd-palette-overlay, .onboarding-hint, .quote-line'));
     }
 
+    function noticeOverlayOpen() {
+        return !!document.querySelector('.pt-notice-overlay:not([hidden])');
+    }
+
+    // 任意可打印按键（含 IME 组合键 229/Process）聚焦搜索框。
+    // 不 preventDefault，让字符自然落入新聚焦的输入框。
+    function tryFocusSearchFromKey(e) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return false;
+        var isPrintable = typeof e.key === 'string' && e.key.length === 1;
+        var isIME = e.key === 'Process' || e.keyCode === 229;
+        if (!isPrintable && !isIME) return false;
+        if (document.activeElement === searchInput) return false;
+        if (!canRevealSearch()) return false;
+        if (settingsSurfaceActive()) return false;
+        if (noticeOverlayOpen()) return false;
+        var active = document.activeElement;
+        if (active && active.closest && active.closest('button, a[href], input, textarea, select, [contenteditable="true"], [tabindex]')) return false;
+        suppressSearchHistoryOnFocus = true;
+        showSearch();
+        searchInput.focus();
+        return true;
+    }
+
+    // 启动即预聚焦搜索框（仅 always 模式）。按键期间移动焦点会让 IME
+    // 把首字母当裸文本提交成英文，预聚焦让组合从一开始就落在输入框上。
+    function prefocusSearchInput() {
+        if (!canFocusSearchFromWallpaper()) return;
+        if (settingsSurfaceActive() || noticeOverlayOpen()) return;
+        if (document.activeElement === searchInput) return;
+        var active = document.activeElement;
+        if (active && active.closest && active.closest('button, a[href], input, textarea, select, [contenteditable="true"], [tabindex]')) return;
+        suppressSearchHistoryOnFocus = true;
+        showSearch();
+        searchInput.focus();
+    }
+
     function schedulePanelWarmup() {
         var warm = function () {
             if (SP && SP.ensureFull) SP.ensureFull().catch(function () { });
             ensurePalette().catch(function () { });
+            // 预热是启动链最后一段结构变更，完成后补一次预聚焦兜底。
+            prefocusSearchInput();
         };
         if ('requestIdleCallback' in window) {
             requestIdleCallback(warm, { timeout: 2500 });
@@ -1615,11 +1661,21 @@
                 if (e.key === 'Enter' && document.activeElement === cpSearchInputEl) { e.preventDefault(); return; }
                 if (e.key !== 'Escape') return;
             }
-            if (e.key === 'Escape') { SP.closeAll(); SP.hideCorners(); }
+            if (e.key === 'Escape') { SP.closeAll(); SP.hideCorners(); prefocusSearchInput(); }
             if (eventMatchesHotkey(e, window.Palette ? window.Palette.loadHotkey() : loadPaletteHotkey())) { e.preventDefault(); openPalette(false); return; }
             if (eventMatchesHotkey(e, window.Palette ? window.Palette.loadHiddenHotkey() : loadPaletteHiddenHotkey())) { e.preventDefault(); openPalette(true); return; }
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'W') { e.preventDefault(); if (SP.isModalOpen && SP.isModalOpen()) SP.closeModal(); else SP.openModal(); return; }
             if (e.key === 'Enter' && document.activeElement === searchInput) { doSearch(searchInput.value); return; }
+            if (tryFocusSearchFromKey(e)) return;
+        });
+
+        // --- 预聚焦保活：窗口/页面重新获得焦点时，若焦点落在 body 上则重新聚焦搜索框。
+        // 页面常在 webview 尚未获得系统焦点时完成加载，此时 focus() 落不住；
+        // IME 首字母竞态只有在"按键落下前输入框已聚焦"时才能避免。
+
+        window.addEventListener('focus', prefocusSearchInput);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) prefocusSearchInput();
         });
 
         // --- 鼠标快捷方式 ---
@@ -1695,6 +1751,7 @@
             log('PlainTab', 'PlainTab started  ·  ' + (IS_EXTENSION ? 'extension' : 'web') + '  ·  ' + SP.getCurrentLang());
             loadWallpaper();
             bindGlobalEvents();
+            prefocusSearchInput();
             schedulePanelWarmup();
             scheduleQuote();
             scheduleOnboardingHint();
