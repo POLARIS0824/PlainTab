@@ -53,6 +53,7 @@
     var DEFAULT_FONT_SCALE = defaultUiValue('appearance', 'fontScale', 'standard');
     var DEFAULT_ACCENT_MODE = defaultUiValue('appearance', 'accentMode', 'auto');
     var DEFAULT_ACCENT_COLOR = defaultUiValue('appearance', 'accentColor', '#6366f1');
+    var DEFAULT_QUOTE_ENABLED = defaultUiValue('quote', 'enabled', true);
     var BACKUP_KDF_ITERATIONS = 150000;
     var HTTPS_ALL_ORIGIN = 'https://*/*';
 
@@ -158,6 +159,7 @@
     var accentMode = DEFAULT_ACCENT_MODE;
     var accentColor = DEFAULT_ACCENT_COLOR;
     var reducedMotion = false;
+    var quoteEnabled = DEFAULT_QUOTE_ENABLED;
     var themeEnabled = false;
     var engineIndex = 0;
     var langBtns = null;
@@ -813,6 +815,7 @@
         var color = document.getElementById('modalAccentColor');
         if (color) color.hidden = accentMode !== 'custom';
         setControlValue('modalReducedMotion', reducedMotion);
+        setControlValue('modalQuoteEnabled', quoteEnabled);
         syncCustomSelects(modalContent);
     }
 
@@ -2285,6 +2288,7 @@
             '<option value="custom"' + (accentMode === 'custom' ? ' selected' : '') + '>' + tr('accentCustom') + '</option>' +
             '</select><input type="color" id="modalAccentColor" class="accent-color-input" value="' + escapeHtml(accentColor) + '"' + (accentMode === 'custom' ? '' : ' hidden') + '>';
         var reducedMotionControl = '<label class="switch-control"><input type="checkbox" id="modalReducedMotion"' + (reducedMotion ? ' checked' : '') + '><span></span></label>';
+        var quoteControl = '<label class="switch-control"><input type="checkbox" id="modalQuoteEnabled"' + (quoteEnabled ? ' checked' : '') + '><span></span></label>';
 
         var body =
             settingGroup(tr('settingsGroupTheme'),
@@ -2296,6 +2300,8 @@
             settingItem(tr('uiRadiusLabel'), modalCopy('modalDescUiRadius'), uiRadiusControl) +
             settingItem(tr('fontScaleLabel'), modalCopy('modalDescFontScale'), fontScaleControl) +
             settingItem(tr('reducedMotionLabel'), modalCopy('modalDescReducedMotion'), reducedMotionControl, 'setting-compact')) +
+            settingGroup(tr('settingsGroupContent'),
+            settingItem(tr('quoteLabel'), modalCopy('modalDescQuote'), quoteControl, 'setting-compact')) +
             '<div class="settings-actions"><button class="reset-defaults-btn" id="appearanceResetBtn" type="button">' + tr('resetAppearanceDefaults') + '</button></div>';
 
         return buildPageShell(tr('tabAppearance'), modalCopy('modalSubtitleAppearance'), body);
@@ -2396,6 +2402,7 @@
         var accentModeSel = document.getElementById('modalAccentMode');
         var accentColorInput = document.getElementById('modalAccentColor');
         var reducedMotionCheck = document.getElementById('modalReducedMotion');
+        var quoteCheck = document.getElementById('modalQuoteEnabled');
         var resetBtn = document.getElementById('appearanceResetBtn');
 
         if (opacityRange) opacityRange.addEventListener('input', function () { applyOpacity(this.value); if (opacityNum) opacityNum.value = this.value; });
@@ -2411,6 +2418,7 @@
             accentColorInput.addEventListener('change', function () { applyAccentColor(this.value); });
         }
         if (reducedMotionCheck) reducedMotionCheck.addEventListener('change', function () { applyReducedMotion(this.checked); });
+        if (quoteCheck) quoteCheck.addEventListener('change', function () { applyQuoteEnabled(this.checked); });
         if (resetBtn) resetBtn.addEventListener('click', function () {
             appConfirm(tr('resetAppearanceConfirm'), { variant: 'warning' }).then(function (ok) {
                 if (ok) resetAppearanceDefaults();
@@ -4598,6 +4606,12 @@
         saveAllSettings();
     }
 
+    function applyQuoteEnabled(value) {
+        quoteEnabled = value === true;
+        if (window.PlainTabQuote) window.PlainTabQuote.setEnabled(quoteEnabled);
+        saveAllSettings();
+    }
+
     function applyThemeMode(on) {
         themeEnabled = on;
         if (on) {
@@ -4624,6 +4638,7 @@
         if (!ui.icon) ui.icon = {};
         if (!ui.panel) ui.panel = {};
         if (!ui.appearance) ui.appearance = {};
+        if (!ui.quote) ui.quote = {};
         ui.search.visibility = searchMode;
         ui.search.engine = currentEngine;
         ui.search.position = searchPosition;
@@ -4652,6 +4667,7 @@
         ui.appearance.accentMode = accentMode;
         ui.appearance.accentColor = accentColor;
         ui.appearance.reducedMotion = reducedMotion;
+        ui.quote.enabled = quoteEnabled;
         D.saveUI(ui);
     }
 
@@ -4662,6 +4678,7 @@
         var icon = ui.icon || {};
         var panel = ui.panel || {};
         var appearance = ui.appearance || {};
+        var quote = ui.quote || {};
         searchMode = search.visibility || DEFAULT_SEARCH_MODE;
         searchPosition = search.position || DEFAULT_SEARCH_POSITION;
         searchAlign = search.align || DEFAULT_SEARCH_ALIGN;
@@ -4690,6 +4707,7 @@
         accentMode = appearance.accentMode || DEFAULT_ACCENT_MODE;
         accentColor = normalizeHexColor(appearance.accentColor, DEFAULT_ACCENT_COLOR);
         reducedMotion = appearance.reducedMotion === true;
+        quoteEnabled = quote.enabled !== false;
         themeEnabled = wallpaper.themeEnabled === true;
         currentEngine = search.engine || DEFAULT_ENGINE;
 
@@ -4755,6 +4773,7 @@
         applyAccentMode(DEFAULT_ACCENT_MODE);
         applyAccentColor(DEFAULT_ACCENT_COLOR);
         applyReducedMotion(false);
+        applyQuoteEnabled(DEFAULT_QUOTE_ENABLED);
         applyThemeMode(false);
         saveAllSettings();
         syncAppearanceControls();

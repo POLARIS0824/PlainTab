@@ -472,6 +472,12 @@
         panel: {
             opacity: 0.88
         },
+        quote: {
+            enabled: true,
+            text: '',
+            from: '',
+            date: ''
+        },
         experience: {
             acknowledged: {}
         }

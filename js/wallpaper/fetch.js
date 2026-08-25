@@ -943,6 +943,7 @@
         isHttpsUrl: isHttpsUrl,
         apiError: apiError,
         wallhavenError: wallhavenError,
+        timeoutSignal: timeoutSignal,
         resolveJsonPath: resolveJsonPath,
         findApiImageUrl: findApiImageUrl,
         WALLHAVEN_COLORS: WALLHAVEN_COLORS,

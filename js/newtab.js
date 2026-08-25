@@ -1451,7 +1451,7 @@
         if (window.Palette && window.Palette.isOpen) return true;
         if (settingsSurfaceActive()) return true;
         return !!(e.target && e.target.closest &&
-            e.target.closest('button, input, textarea, select, [contenteditable="true"], .settings-panel, .language-panel, .modal-overlay, .cmd-palette-overlay, .onboarding-hint'));
+            e.target.closest('button, input, textarea, select, [contenteditable="true"], .settings-panel, .language-panel, .modal-overlay, .cmd-palette-overlay, .onboarding-hint, .quote-line'));
     }
 
     function schedulePanelWarmup() {
@@ -1538,6 +1538,17 @@
             requestIdleCallback(function () { setTimeout(show, 900); }, { timeout: 2200 });
         } else {
             setTimeout(show, 1800);
+        }
+    }
+
+    function scheduleQuote() {
+        var boot = function () {
+            if (window.PlainTabQuote) window.PlainTabQuote.boot();
+        };
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(boot, { timeout: 2200 });
+        } else {
+            setTimeout(boot, 1200);
         }
     }
 
@@ -1685,6 +1696,7 @@
             loadWallpaper();
             bindGlobalEvents();
             schedulePanelWarmup();
+            scheduleQuote();
             scheduleOnboardingHint();
         });
     }
