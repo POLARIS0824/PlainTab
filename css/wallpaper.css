@@ -168,6 +168,52 @@
     transform: translateY(0);
 }
 
+/* ========== 保存当前壁纸 ========== */
+.wallpaper-save-btn {
+    position: fixed;
+    right: 24px;
+    bottom: 28px;
+    z-index: 40;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(10, 15, 24, 0.52);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.16s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.wallpaper-save-btn[hidden] {
+    display: none;
+}
+
+.wallpaper-save-btn:hover,
+.wallpaper-save-btn:focus-visible {
+    opacity: 1;
+}
+
+.wallpaper-save-btn:active {
+    opacity: 1;
+}
+
+.wallpaper-save-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    pointer-events: none;
+}
+
+.wallpaper-save-btn.rss-shift {
+    right: 72px;
+}
+
 .wallpaper-download-notice {
     position: fixed;
     right: 24px;
@@ -264,5 +310,14 @@
         right: 16px;
         bottom: 78px;
         max-width: min(300px, calc(100vw - 32px));
+    }
+
+    .wallpaper-save-btn {
+        right: 16px;
+        bottom: 64px;
+    }
+
+    .wallpaper-save-btn.rss-shift {
+        right: 64px;
     }
 }

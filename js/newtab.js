@@ -87,6 +87,8 @@
     var apiEveryOpenRefreshKeys = {};
     var wallpaperDownloadNoticeEl = null;
     var wallpaperDownloadNoticeTimer = null;
+    var wallpaperSaveBtnEl = null;
+    var wallpaperSaveBusy = false;
     var FIRST_USE_HINT_ID = 'firstUseHint';
     var FIRST_USE_HINT_VERSION = 1;
     var onboardingEl = null;
@@ -160,6 +162,7 @@
         if (!rssInfoEl) return;
         rssInfoEl.hidden = true;
         rssInfoEl.innerHTML = '';
+        refreshWallpaperSaveButtonPlacement();
     }
 
     function renderRssOverlay(id) {
@@ -183,9 +186,15 @@
             rssInfoEl.innerHTML = '<div class="rss-info-title">' + title + '</div><div class="rss-info-desc">' + desc + '</div>' + link;
         }
         rssInfoEl.hidden = false;
+        refreshWallpaperSaveButtonPlacement();
     }
 
     function downloadNoticeCopy(kind, phase, progress) {
+        if (kind === 'current') {
+            if (phase === 'done') return t('wallpaperSaveCurrentDone');
+            if (phase === 'error') return t('wallpaperSaveCurrentError');
+            return t('wallpaperSaveCurrentProgress');
+        }
         if (kind === 'uploadVideo') {
             if (phase === 'done') return t('wallpaperVideoProcessDone');
             if (phase === 'error') return t('wallpaperVideoProcessError');
@@ -240,6 +249,174 @@
         }
     }
     window.showWallpaperDownloadNotice = showWallpaperDownloadNotice;
+
+    // ================================================================
+    // 保存当前壁纸
+    // ================================================================
+
+    var WALLPAPER_SAVE_EXT_BY_MIME = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'image/avif': '.avif',
+        'image/gif': '.gif',
+        'image/bmp': '.bmp',
+        'video/mp4': '.mp4',
+        'video/webm': '.webm'
+    };
+
+    var WALLPAPER_SAVE_SVG = '<svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v9.17l3.29-3.3a1 1 0 1 1 1.42 1.42l-5 5a1 1 0 0 1-1.42 0l-5-5a1 1 0 1 1 1.42-1.42l3.29 3.3V4a1 1 0 0 1 1-1zM5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1z"/></svg>';
+
+    function applyWallpaperSaveLabel(lang) {
+        if (!wallpaperSaveBtnEl) return;
+        // onLangChange 触发时 window.t 的闭包语言可能尚未更新（setCurrentLang 异步），
+        // 优先用回调收到的 locale 直接查语言包。
+        var pack = lang && window.I18N ? window.I18N[lang] : null;
+        var label = (pack && pack.wallpaperSaveCurrentLabel) || t('wallpaperSaveCurrentLabel');
+        wallpaperSaveBtnEl.setAttribute('title', label);
+        wallpaperSaveBtnEl.setAttribute('aria-label', label);
+    }
+
+    var wallpaperSaveLangHookInstalled = false;
+
+    function installWallpaperSaveLangHook() {
+        if (wallpaperSaveLangHookInstalled) return;
+        wallpaperSaveLangHookInstalled = true;
+        var prev = window.onLangChange;
+        window.onLangChange = function (lang) {
+            applyWallpaperSaveLabel(lang);
+            if (typeof prev === 'function') prev(lang);
+        };
+    }
+
+    function ensureWallpaperSaveButton() {
+        if (wallpaperSaveBtnEl) return wallpaperSaveBtnEl;
+        var btn = document.createElement('button');
+        btn.className = 'wallpaper-save-btn';
+        btn.type = 'button';
+        btn.hidden = true;
+        btn.innerHTML = WALLPAPER_SAVE_SVG;
+        btn.addEventListener('click', downloadCurrentWallpaper);
+        document.body.appendChild(btn);
+        wallpaperSaveBtnEl = btn;
+        applyWallpaperSaveLabel();
+        installWallpaperSaveLangHook();
+        return btn;
+    }
+
+    function showWallpaperSaveButton() {
+        var btn = ensureWallpaperSaveButton();
+        refreshWallpaperSaveButtonPlacement();
+        btn.hidden = false;
+    }
+
+    function scheduleWallpaperSaveButton() {
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(showWallpaperSaveButton, { timeout: 2500 });
+        } else {
+            setTimeout(showWallpaperSaveButton, 1200);
+        }
+    }
+
+    // RSS 底部摘要出现时按钮左移让位（同顶部 RSS 摘要让出右角的先例）。
+    function refreshWallpaperSaveButtonPlacement() {
+        if (!wallpaperSaveBtnEl || !rssInfoEl) return;
+        var rssBottomVisible = !rssInfoEl.hidden && rssInfoEl.className.indexOf('bottom') !== -1;
+        wallpaperSaveBtnEl.classList.toggle('rss-shift', rssBottomVisible);
+    }
+
+    function wallpaperSaveExt(blob) {
+        var type = String(blob && blob.type || '').toLowerCase();
+        return WALLPAPER_SAVE_EXT_BY_MIME[type] || '.jpg';
+    }
+
+    function wallpaperSaveBaseName(id) {
+        var meta = id ? D.loadMeta()[id] : null;
+        var base = meta && (meta.name || meta.title) ? String(meta.name || meta.title) : '';
+        base = base.replace(/[\\/:*?"<>|]/g, ' ').trim();
+        if (!base) base = 'PlainTab-' + new Date().toISOString().slice(0, 10);
+        if (base.length > 80) base = base.slice(0, 80);
+        return base;
+    }
+
+    function wallpaperSaveFilename(blob, id) {
+        var ext = wallpaperSaveExt(blob);
+        var base = wallpaperSaveBaseName(id);
+        if (base.slice(-(ext.length)).toLowerCase() === ext) return base;
+        return base + ext;
+    }
+
+    function downloadWallpaperBlob(filename, blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+    }
+
+    function currentWallpaperRecordBlob(id) {
+        if (!id) return Promise.resolve(null);
+        if (D.isFolderId && D.isFolderId(id)) {
+            if (!D.loadFolderLightCache || !D.folderNameFromId) return Promise.resolve(null);
+            return D.loadFolderLightCache(D.folderNameFromId(id)).then(function (record) {
+                return record && record.blob ? record.blob : null;
+            }).catch(function () { return null; });
+        }
+        return D.idbGet(D.imgKey(id)).then(function (record) {
+            if (!record || !record.blob) return null;
+            var blob = record.blob;
+            if ((!blob.type || blob.type === '') && record.mime) {
+                try { blob = new Blob([blob], { type: record.mime }); } catch (e) { }
+            }
+            return blob;
+        }).catch(function () { return null; });
+    }
+
+    function downloadCurrentWallpaper() {
+        if (wallpaperSaveBusy) return;
+        // 点击瞬间捕获 url/id，中途壁纸切换不影响本次结果。
+        var url = S.currentOriginalUrl;
+        var id = S.currentOriginalId;
+        if (!url) {
+            // 壁纸尚未登记 URL（如加载失败只剩兜底渐变）时仍给出反馈。
+            currentWallpaperRecordBlob(id).then(function (blob) {
+                if (blob) downloadWallpaperBlob(wallpaperSaveFilename(blob, id), blob);
+                else showWallpaperDownloadNotice('current', 'error');
+            });
+            return;
+        }
+
+        wallpaperSaveBusy = true;
+        showWallpaperDownloadNotice('current', 'progress');
+
+        var finish = function (blob) {
+            if (blob) {
+                downloadWallpaperBlob(wallpaperSaveFilename(blob, id), blob);
+                showWallpaperDownloadNotice('current', 'done');
+            } else {
+                showWallpaperDownloadNotice('current', 'error');
+            }
+            wallpaperSaveBusy = false;
+        };
+
+        // 主路径：blob: URL 直接物化为新 Blob（模糊模式下登记的也是原图 URL）。
+        if (url.indexOf('blob:') === 0) {
+            fetch(url).then(function (r) {
+                return r.blob();
+            }).then(finish, function () {
+                currentWallpaperRecordBlob(id).then(finish);
+            });
+            return;
+        }
+
+        // 回退：按 id 查 IndexedDB；仍拿不到且不是缩略图时才走网络。
+        currentWallpaperRecordBlob(id).then(function (blob) {
+            if (blob) return blob;
+            if (url.indexOf('data:') === 0) return null;
+            return fetch(url).then(function (r) { return r.blob(); });
+        }).then(finish, function () { finish(null); });
+    }
 
     function activeRssSource() {
         var config = D.loadRssConfig();
@@ -1763,6 +1940,7 @@
             prefocusSearchInput();
             schedulePanelWarmup();
             scheduleQuote();
+            scheduleWallpaperSaveButton();
             scheduleOnboardingHint();
         });
     }
