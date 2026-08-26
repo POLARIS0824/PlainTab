@@ -496,6 +496,7 @@
         recents: [],
         hidden: [],
         settings: {
+            paletteEnabled: true,
             primaryHotkey: 'ctrl+k',
             hiddenHotkey: 'ctrl+shift+k',
             recommendEnabled: true,

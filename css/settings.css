@@ -2125,6 +2125,15 @@ html[data-search-preview="true"] .search-bar {
     color: var(--text-muted);
 }
 
+.cp-feature-off .setting-item:not(.cp-master) {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.cp-feature-off .setting-item:not(.cp-master):hover {
+    background: transparent;
+}
+
 .setting-item:nth-of-type(odd),
 .setting-item:nth-of-type(even),
 .setting-item:nth-of-type(3n) {

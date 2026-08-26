@@ -1379,6 +1379,10 @@
         return {};
     }
 
+    function paletteFeatureEnabled() {
+        return loadShortcutSettings().paletteEnabled !== false;
+    }
+
     function loadPaletteHotkey() {
         return loadShortcutSettings().primaryHotkey || 'ctrl+k';
     }
@@ -1436,6 +1440,7 @@
     }
 
     function openPalette(hidden, anchor) {
+        if (!paletteFeatureEnabled()) return;
         ensurePalette().then(function (palette) {
             if (!palette) return;
             var resolvedAnchor = anchor || lastPointerAnchor;
@@ -1501,7 +1506,7 @@
     function schedulePanelWarmup() {
         var warm = function () {
             if (SP && SP.ensureFull) SP.ensureFull().catch(function () { });
-            ensurePalette().catch(function () { });
+            if (paletteFeatureEnabled()) ensurePalette().catch(function () { });
             // 预热是启动链最后一段结构变更，完成后补一次预聚焦兜底。
             prefocusSearchInput();
         };
@@ -1662,8 +1667,10 @@
                 if (e.key !== 'Escape') return;
             }
             if (e.key === 'Escape') { SP.closeAll(); SP.hideCorners(); prefocusSearchInput(); }
-            if (eventMatchesHotkey(e, window.Palette ? window.Palette.loadHotkey() : loadPaletteHotkey())) { e.preventDefault(); openPalette(false); return; }
-            if (eventMatchesHotkey(e, window.Palette ? window.Palette.loadHiddenHotkey() : loadPaletteHiddenHotkey())) { e.preventDefault(); openPalette(true); return; }
+            if (paletteFeatureEnabled()) {
+                if (eventMatchesHotkey(e, window.Palette ? window.Palette.loadHotkey() : loadPaletteHotkey())) { e.preventDefault(); openPalette(false); return; }
+                if (eventMatchesHotkey(e, window.Palette ? window.Palette.loadHiddenHotkey() : loadPaletteHiddenHotkey())) { e.preventDefault(); openPalette(true); return; }
+            }
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'W') { e.preventDefault(); if (SP.isModalOpen && SP.isModalOpen()) SP.closeModal(); else SP.openModal(); return; }
             if (e.key === 'Enter' && document.activeElement === searchInput) { doSearch(searchInput.value); return; }
             if (tryFocusSearchFromKey(e)) return;
@@ -1681,11 +1688,13 @@
         // --- 鼠标快捷方式 ---
 
         document.addEventListener('dblclick', function (e) {
+            if (!paletteFeatureEnabled()) return;
             if (shouldBlockPaletteMouseShortcut(e)) return;
             openPalette(false, pointerAnchorFromEvent(e));
         });
 
         document.addEventListener('auxclick', function (e) {
+            if (!paletteFeatureEnabled()) return;
             if (e.button !== 1) return;
             if (shouldBlockPaletteMouseShortcut(e)) {
                 if (settingsSurfaceActive()) e.preventDefault();

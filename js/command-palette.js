@@ -179,7 +179,7 @@
             items: [Object.assign({}, BUILTIN_GITHUB)],
             recents: [],
             hidden: [],
-            settings: { primaryHotkey: 'ctrl+k', hiddenHotkey: 'ctrl+shift+k', recommendEnabled: true, viewMode: 'list', commandsCollapsed: true, palettePlacement: 'follow', palettePosition: null, paletteSkin: 'default', builtinGithubAdded: true }
+            settings: { paletteEnabled: true, primaryHotkey: 'ctrl+k', hiddenHotkey: 'ctrl+shift+k', recommendEnabled: true, viewMode: 'list', commandsCollapsed: true, palettePlacement: 'follow', palettePosition: null, paletteSkin: 'default', builtinGithubAdded: true }
         };
     }
     function saveShortcutModel(model) {

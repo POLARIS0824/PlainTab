@@ -728,6 +728,14 @@
         updateShortcutSettings(function (settings) { settings.recommendEnabled = !!value; });
     }
 
+    function loadPaletteEnabled() {
+        return loadShortcutSettings().paletteEnabled !== false;
+    }
+
+    function savePaletteEnabled(value) {
+        updateShortcutSettings(function (settings) { settings.paletteEnabled = !!value; });
+    }
+
     function loadPalettePlacement() {
         return loadShortcutSettings().palettePlacement === 'fixed' ? 'fixed' : 'follow';
     }
@@ -749,8 +757,8 @@
         });
     }
 
-    function buildPageShell(title, subtitle, body) {
-        return '<div class="settings-page-shell">' +
+    function buildPageShell(title, subtitle, body, extraClass) {
+        return '<div class="settings-page-shell' + (extraClass ? ' ' + extraClass : '') + '">' +
             '<div class="settings-page-header">' +
             '<h2>' + title + '</h2>' +
             '<p>' + subtitle + '</p>' +
@@ -835,6 +843,8 @@
         setControlValue('cpPlacement', loadPalettePlacement());
         setControlValue('cpSkin', loadPaletteSkin());
         setControlValue('cpRecommend', loadPaletteRecommend());
+        setControlValue('cpEnabled', loadPaletteEnabled());
+        updatePaletteDisabledUI();
         syncCustomSelects(modalContent);
     }
 
@@ -3688,6 +3698,8 @@
         var hkNormal = loadPaletteHotkey();
         var hkHidden = loadPaletteHiddenHotkey();
         var checked = loadPaletteRecommend() ? ' checked' : '';
+        var enabledChecked = loadPaletteEnabled() ? ' checked' : '';
+        var enabledControl = '<label class="switch-control"><input type="checkbox" id="cpEnabled"' + enabledChecked + '><span></span></label>';
         var placement = loadPalettePlacement();
         var placementControl = '<select id="cpPlacement">' +
             '<option value="follow"' + (placement === 'follow' ? ' selected' : '') + '>' + tr('cpPlacementFollow') + '</option>' +
@@ -3703,6 +3715,7 @@
 
         var body =
             settingGroup(tr('cpGroupOpen'),
+            settingItem(tr('cpEnabledLabel'), modalCopy('modalDescPaletteEnabled'), enabledControl, 'setting-compact cp-master') +
             settingItem(tr('cpPlacementLabel'), modalCopy('modalDescPalettePlacement'), placementControl, 'setting-compact') +
             settingItem(tr('cpHotkeyLabel'), modalCopy('modalDescHotkey'), '<input type="text" class="hotkey-input" id="hkNormal" value="' + hkNormal + '" readonly>') +
             settingItem(tr('cpHiddenHotkeyLabel'), modalCopy('modalDescHiddenHotkey'), '<input type="text" class="hotkey-input" id="hkHidden" value="' + hkHidden + '" readonly>')) +
@@ -3712,12 +3725,20 @@
             settingItem(tr('cpSkinLabel'), modalCopy('modalDescPaletteSkin'), skinControl, 'setting-compact')) +
             '<div class="settings-actions"><button class="reset-defaults-btn" id="shortcutsResetBtn" type="button">' + tr('resetShortcutsDefaults') + '</button></div>';
 
-        return buildPageShell(tr('tabShortcuts'), modalCopy('modalSubtitleShortcuts'), body);
+        return buildPageShell(tr('tabShortcuts'), modalCopy('modalSubtitleShortcuts'), body, loadPaletteEnabled() ? '' : 'cp-feature-off');
+    }
+
+    function updatePaletteDisabledUI() {
+        var page = _tabPages.shortcuts;
+        if (!page) return;
+        var shell = page.querySelector('.settings-page-shell');
+        if (shell) shell.classList.toggle('cp-feature-off', !loadPaletteEnabled());
     }
 
     function bindShortcutsEvents() {
         var hkNormalEl = document.getElementById('hkNormal');
         var hkHiddenEl = document.getElementById('hkHidden');
+        var cpEnabled = document.getElementById('cpEnabled');
         var cpRec = document.getElementById('cpRecommend');
         var cpPlacement = document.getElementById('cpPlacement');
         var cpSkin = document.getElementById('cpSkin');
@@ -3725,6 +3746,11 @@
 
         if (hkNormalEl) hkNormalEl.addEventListener('click', function () { startRecording('normal', hkNormalEl); });
         if (hkHiddenEl) hkHiddenEl.addEventListener('click', function () { startRecording('hidden', hkHiddenEl); });
+        if (cpEnabled) cpEnabled.addEventListener('change', function () {
+            savePaletteEnabled(cpEnabled.checked);
+            if (!cpEnabled.checked && window.Palette && window.Palette.isOpen) window.Palette.close();
+            updatePaletteDisabledUI();
+        });
         if (cpPlacement) cpPlacement.addEventListener('change', function () {
             savePalettePlacement(cpPlacement.value);
             if (window.Palette && window.Palette.refresh) window.Palette.refresh();
@@ -4804,6 +4830,7 @@
         } else {
             var model = D.loadShortcutsModel();
             model.settings = {
+                paletteEnabled: true,
                 primaryHotkey: 'ctrl+k',
                 hiddenHotkey: 'ctrl+shift+k',
                 recommendEnabled: true,

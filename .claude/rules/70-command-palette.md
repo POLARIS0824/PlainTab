@@ -12,6 +12,7 @@
 - `hidden`：隐藏快捷链接。
 - `recents`：最近使用。
 - `settings`：
+  - `paletteEnabled`，默认 `true`，总开关；缺失按启用解释（`!== false`）
   - `primaryHotkey`，默认 `ctrl+k`
   - `hiddenHotkey`，默认 `ctrl+shift+k`
   - `recommendEnabled`，默认 `true`
@@ -23,6 +24,15 @@
   - `builtinGithubAdded`
 
 快捷键/命令面板设置恢复默认时，恢复 settings，并补回可见的内置 GitHub 快捷链接及图标；不要删除其他用户快捷链接，除非用户明确执行快捷链接数据操作。
+
+## 总开关
+
+`paletteEnabled = false` 时：
+
+- 普通快捷键、隐藏快捷键、document 双击和中键四种打开方式全部停用；快捷键不得 `preventDefault`，中键恢复浏览器默认行为。
+- 启动 idle 预热跳过命令面板的 CSS/JS 注入；`js/command-palette.js` 不会被加载。
+- 设置中关闭开关时，若面板正打开应立即关闭；重新开启后无需刷新，首次触发时按需加载。
+- 门控集中在 `js/newtab.js`（`paletteFeatureEnabled()`），面板内部不做重复门控；设置页「命令面板」其余控件置灰（`cp-feature-off`），但「重置默认」保持可用。
 
 ## 打开和定位
 

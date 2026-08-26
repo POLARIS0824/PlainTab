@@ -110,7 +110,7 @@ legacy v2 key 只允许迁移桥接或 preload 首帧兜底读取，不属于当
 - `items`
 - `recents`
 - `hidden`
-- `settings`：普通/隐藏快捷键、推荐开关、视图模式、命令折叠状态、面板定位/位置、面板皮肤、内置 GitHub 标记
+- `settings`：面板启用开关、普通/隐藏快捷键、推荐开关、视图模式、命令折叠状态、面板定位/位置、面板皮肤、内置 GitHub 标记。`paletteEnabled` 默认 `true`，缺失按启用解释（`!== false`），只回填默认值，不触发 `LS_VERSION` 变化
 
 ## 归一化规则
 
