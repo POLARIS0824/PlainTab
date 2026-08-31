@@ -122,7 +122,7 @@ legacy v2 key 只允许迁移桥接或 preload 首帧兜底读取，不属于当
 - 内置 RSS 源允许用户删除。`resetWallpaperDefaults()` 会恢复它们。
 - API 分为 image 和 JSON 两套 source 列表，每套最多 5 个，并有各自 active id。
 - API 自动拉取间隔允许 `-1`、`0`、`1d`、`3d`、`7d`。RSS 允许 `0`、`1d`、`3d`、`7d`。
-- Wallhaven 固定 `purity=100`，缓存 ID 使用 `wallhaven_<id>`，自动刷新只允许 `0`、`1d`、`3d`、`7d`。
+- Wallhaven 固定 `purity=100`，缓存 ID 使用 `wallhaven_<id>`，自动刷新只允许 `0`、`1d`、`3d`、`7d`。本地图池上限 48（`WallpaperData.WALLHAVEN_POOL_LIMIT`），追加超出上限时优先淘汰指针身后已看过的最旧图。
 - 搜索历史数量归一化为 `0`、`5` 或 `10`；历史项大小写不敏感去重，并裁剪到上限。
 
 ## 恢复默认和导入导出

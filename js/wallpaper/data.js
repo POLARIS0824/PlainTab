@@ -48,6 +48,9 @@
         SEVEN_DAYS: 7 * 24 * 60 * 60 * 1000
     };
 
+    // Wallhaven 本地图池上限：增量追加超过该数量时优先淘汰已看过的最旧图
+    var WALLHAVEN_POOL_LIMIT = 48;
+
     var BUILTIN_RSS_SOURCES = [
         { id: 'github-trending', name: 'GitHub Trending', url: 'https://mshibanami.github.io/GitHubTrendingRSS/weekly/all.xml', builtIn: true },
         { id: 'ruanyifeng', name: 'ruanyifeng\'s Blog', url: 'https://feeds.feedburner.com/ruanyifeng', builtIn: true }
@@ -908,7 +911,7 @@
         merged.lastCheckedAt = parseInt(merged.lastCheckedAt, 10) || 0;
         merged.lastSuccessAt = parseInt(merged.lastSuccessAt, 10) || 0;
         merged.lastTestAt = parseInt(merged.lastTestAt, 10) || 0;
-        merged.cachedCount = Math.max(0, Math.min(12, parseInt(merged.cachedCount, 10) || 0));
+        merged.cachedCount = Math.max(0, Math.min(WALLHAVEN_POOL_LIMIT, parseInt(merged.cachedCount, 10) || 0));
         ['lastError', 'lastTestMessage', 'lastQueryUrl', 'lastWallpaperId', 'lastImageUrl'].forEach(function (key) {
             merged[key] = String(merged[key] || '').slice(0, 260);
         });
@@ -1895,6 +1898,7 @@
         saveWallpaper: saveWallpaper,
         updateWallpaper: updateWallpaper,
         refreshIntervalOptions: refreshIntervalOptions,
+        WALLHAVEN_POOL_LIMIT: WALLHAVEN_POOL_LIMIT,
         defaultRssConfig: defaultRssConfig,
         rssFieldHash: rssFieldHash,
         apiFieldHash: apiFieldHash,

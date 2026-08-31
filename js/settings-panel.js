@@ -98,7 +98,7 @@
     // DOM 元素
     // ================================================================
     var settingsBtn, langBtn, settingsPanel, langPanel, langOptions;
-    var modeChipEl, galleryAnchorEl, uploadBtn, fileInput;
+    var modeChipEl, galleryAnchorEl, uploadBtn, fileInput, wallhavenPullBtn;
     var searchBar, engineIcon;
     // Modal
     var modalOverlay, modalWindow, modalContent;
@@ -112,6 +112,7 @@
         modeChipEl = document.getElementById('wpModeChip');
         galleryAnchorEl = document.getElementById('galleryAnchor');
         uploadBtn = document.getElementById('uploadBtn');
+        wallhavenPullBtn = document.getElementById('wallhavenPullBtn');
         fileInput = document.getElementById('fileInput');
         searchBar = document.getElementById('searchBar');
         engineIcon = document.getElementById('searchEngineIcon');
@@ -180,6 +181,7 @@
     var wallpaperDraftApiTestResult = null;
     var wallpaperDraftRssTestResult = null;
     var wallpaperDraftWallhavenTestResult = null;
+    var wallhavenPullBusy = false;
     var wallpaperDraftFolderMount = null;
     var wallpaperDraftApiOpenType = '';
     var wallpaperWorkOrder = null;
@@ -5315,7 +5317,8 @@
         var thumbs = D.loadThumbs();
         var meta = D.loadMeta();
         if (!order.length) return singleGalleryItems('wallhaven');
-        return order.slice(0, 12).map(function (id) {
+        var limit = D.WALLHAVEN_POOL_LIMIT || 48;
+        return order.slice(0, limit).map(function (id) {
             var item = meta[id] || {};
             return {
                 id: id,
@@ -5328,8 +5331,76 @@
         });
     }
 
+    // 把画廊里的某张图立即设为当前壁纸：把轮换指针拨到该图再走一遍加载流程
+    function activateGalleryWallpaper(id) {
+        if (!id) return;
+        if (currentMode === 'wallhaven') {
+            var order = D.activeWallhavenOrder ? D.activeWallhavenOrder() : [];
+            var idx = order.indexOf(id);
+            if (idx < 0) return;
+            D.saveActiveIndex(idx);
+        } else if (currentMode === 'rss') {
+            var config = D.loadRssConfig ? D.loadRssConfig() : {};
+            if (config.displayMode === 'latest') return;
+            var rssOrder = (activeRssOrder() || []).filter(function (oid) {
+                var m = D.loadMeta()[oid];
+                return !m || m.sourceId === config.activeSourceId;
+            });
+            var rssIdx = rssOrder.indexOf(id);
+            if (rssIdx < 0) return;
+            D.saveActiveIndex(rssIdx);
+        } else if (currentMode === 'local' || currentMode === 'upload') {
+            var localOrder = D.loadOrder();
+            var localIdx = localOrder.indexOf(id);
+            if (localIdx < 0) return;
+            if (D.setUploadActiveMedia && uploadConfig().activeMedia !== 'image') D.setUploadActiveMedia('image');
+            D.saveActiveIndex(localIdx);
+        } else {
+            return;
+        }
+        if (window.reloadWallpaper) window.reloadWallpaper();
+    }
+
+    function updateWallhavenPullButton() {
+        if (!wallhavenPullBtn) return;
+        wallhavenPullBtn.hidden = currentMode !== 'wallhaven';
+        wallhavenPullBtn.title = t('wallhavenPullMore');
+        wallhavenPullBtn.setAttribute('aria-label', t('wallhavenPullMore'));
+    }
+
+    function setWallhavenPullBusy(busy) {
+        if (!wallhavenPullBtn) return;
+        wallhavenPullBtn.disabled = !!busy;
+        wallhavenPullBtn.classList.toggle('busy', !!busy);
+    }
+
+    function pullMoreWallhaven() {
+        if (wallhavenPullBusy || !F.refreshWallhavenSource) return;
+        wallhavenPullBusy = true;
+        setWallhavenPullBusy(true);
+        var notice = typeof showRuntimeDownloadNotice === 'function' ? showRuntimeDownloadNotice : window.showWallpaperDownloadNotice;
+        if (notice) notice('wallhaven', 'loading');
+        F.refreshWallhavenSource(D.loadWallhavenConfig(), {
+            append: true,
+            activate: false,
+            onProgress: function (progress) {
+                if (notice) notice('wallhaven', 'loading', progress);
+            }
+        }).then(function (result) {
+            if (notice) notice('wallhaven', 'done', { cached: result && result.added, total: result && result.total });
+            refreshGallery();
+        }).catch(function (err) {
+            warn('Wallhaven', 'manual pull failed: ' + (err && err.message ? err.message : err));
+            if (notice) notice('wallhaven', 'error');
+        }).then(function () {
+            wallhavenPullBusy = false;
+            setWallhavenPullBusy(false);
+        });
+    }
+
     function refreshGallery() {
         updateModeChip();
+        updateWallhavenPullButton();
 
         if (!isOpen) return;
         if (currentMode === 'local' || currentMode === 'upload') return refreshUploadGallery();
@@ -5337,13 +5408,19 @@
         if (uploadBtn) uploadBtn.style.display = 'none';
 
         if (currentMode === 'folder') return renderGallery(folderGalleryItems(), { source: 'folder' });
-        if (currentMode === 'rss') return renderGallery(rssGalleryItems(), { source: 'rss' });
+        if (currentMode === 'rss') {
+            var rssOptions = { source: 'rss' };
+            var rssConfig = D.loadRssConfig ? D.loadRssConfig() : {};
+            if (rssConfig.displayMode !== 'latest') rssOptions.activateItem = activateGalleryWallpaper;
+            return renderGallery(rssGalleryItems(), rssOptions);
+        }
         if (currentMode === 'wallhaven') return renderGallery(wallhavenGalleryItems(), {
             source: 'wallhaven',
             draggable: true,
             deleteItem: function (id) { deleteWallhavenImage(id); },
             loadOrder: function () { return D.activeWallhavenOrder ? D.activeWallhavenOrder() : []; },
-            saveOrder: function (order) { if (D.saveWallhavenOrder) D.saveWallhavenOrder(order); }
+            saveOrder: function (order) { if (D.saveWallhavenOrder) D.saveWallhavenOrder(order); },
+            activateItem: activateGalleryWallpaper
         });
         if (currentMode === 'api') return renderGallery(singleGalleryItems('api'), { source: 'api' });
         return renderGallery(singleGalleryItems('bing'), { source: 'bing' });
@@ -5507,6 +5584,15 @@
                 fallback.className = 'wallpaper-thumb-fallback';
                 fallback.textContent = item.fallback || (item.title || item.id || '?').charAt(0).toUpperCase();
                 card.appendChild(fallback);
+            }
+
+            if (item.bg && typeof options.activateItem === 'function') {
+                card.classList.add('is-clickable');
+                card.title = (item.title ? item.title + ' · ' : '') + t('wallpaperThumbSetTip');
+                card.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    options.activateItem(this.dataset.id);
+                });
             }
 
             if (item.deletable) {
@@ -5831,7 +5917,7 @@
 
         var imagePane = document.createElement('div');
         imagePane.className = 'upload-gallery-pane upload-gallery-pane-image';
-        var imageGrid = buildGalleryGrid(buildUploadItems(order, images, thumbs), { source: 'upload' });
+        var imageGrid = buildGalleryGrid(buildUploadItems(order, images, thumbs), { source: 'upload', activateItem: activateGalleryWallpaper });
         imagePane.appendChild(imageGrid);
 
         var videoPane = document.createElement('div');
@@ -6474,6 +6560,11 @@
         // L1 上传按钮
         if (!useBootstrapShell) {
             uploadBtn.addEventListener('click', function (e) { e.stopPropagation(); pickUpload(); });
+        }
+
+        // L1 Wallhaven 手动拉取一批
+        if (wallhavenPullBtn) {
+            wallhavenPullBtn.addEventListener('click', function (e) { e.stopPropagation(); pullMoreWallhaven(); });
         }
 
         // 文件选择

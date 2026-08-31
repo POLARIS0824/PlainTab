@@ -32,7 +32,7 @@ legacy v2 -> schema 3 迁移只写用户上传壁纸连续性所需数据，不�
 - `upload`：用户上传的本地图片和唯一视频壁纸，作为 Blob 保存。图片和视频是互斥媒体模式，视频不进入图片轮播队列。
 - `folder`：File System Access API 文件夹来源，保存 handle、索引和轻量缓存状态。
 - `rss`：RSS 图片源，带图片提取、RSS Blob 缓存，以及可选摘要/链接浮层。
-- `wallhaven`：Wallhaven 搜索源，SFW-only，测试配置后下载前 12 张可用结果并按本地队列顺序轮换。
+- `wallhaven`：Wallhaven 搜索源，SFW-only，测试配置后下载前 12 张可用结果建立本地图池（上限 48），定时刷新与手动拉取按增量追加轮换。
 - `api`：图片直链 API 或 JSON API，通过 JSON path 提取图片地址。
 
 `local` 只是 `upload` 的兼容标签。
@@ -76,7 +76,10 @@ Bing 缓存仍使用固定 Blob key `ptab_wallpaper_blob_bing`。`providers.bing
 - Wallhaven 使用 `https://wallhaven.cc/api/v1/search`，第一版固定 `purity=100`，不保存 API key。
 - 设置项包括搜索预设/自定义搜索、分类、排序、topRange、分辨率模式、比例、颜色和刷新间隔。
 - 测试只验证 JSON 结果里至少有一张带 HTTPS `path` 的图片；测试通过后才允许应用配置。
-- 应用或刷新时下载返回结果前 12 张可用图片。至少成功缓存 1 张才算成功。
+- 应用配置（查询条件变更）时下载返回结果前 12 张可用图片并整体替换图池，至少成功缓存 1 张才算成功。
+- 定时刷新和手动「拉取一批」走增量追加：新图插在轮换指针之后（下一张立即是新图），toplist 排序下先取第 1 页探测 `last_page` 再随机取更深页码凑满一批（最多 3 次请求），避免热门榜第 1 页长期不变导致图池不更新。
+- 追加淘汰优先移除指针身后最早已看过的图，溢出时才从队尾移除最久未看的图；未看过的图应尽量保留在指针前方，不重置轮换指针。
+- 图池上限 48（`WallpaperData.WALLHAVEN_POOL_LIMIT`），追加超出上限时优先淘汰指针身后已看过的最旧图；淘汰时先移除 thumbs/meta 引用，再删除 Blob。
 - 成功写入新 Blob、缩略图和引用后，才能删除旧 Wallhaven Blob。
 - 本地展示按 `cache.order` 顺序轮换。删除和拖拽移位只影响本地 Wallhaven 队列。
 - 自动刷新只支持关闭、1 天、3 天、7 天，不支持每次打开新标签页。

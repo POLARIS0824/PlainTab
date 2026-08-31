@@ -1216,15 +1216,16 @@
         showWallpaperDownloadNotice('wallhaven', 'loading');
         return F.refreshWallhavenSource(config, {
             activate: true,
+            append: true,
             onProgress: function (progress) {
                 showWallpaperDownloadNotice('wallhaven', 'loading', progress);
             }
         }).then(function (result) {
             showWallpaperDownloadNotice('wallhaven', 'done', {
-                cached: result.cached || result.order.length,
+                cached: result.added,
                 total: result.total || result.order.length
             });
-            return true;
+            return !!result.added;
         }).catch(function (err) {
             warn('Wallhaven', 'refresh failed: ' + (err && err.message ? err.message : err));
             showWallpaperDownloadNotice('wallhaven', 'error');

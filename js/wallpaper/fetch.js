@@ -14,7 +14,9 @@
     function warn() { window.warn.apply(window, arguments); }
     var RSS_IMAGE_TIMEOUT_MS = 30000;
     var WALLHAVEN_API = 'https://wallhaven.cc/api/v1/search';
-    var WALLHAVEN_CACHE_LIMIT = 12;
+    // 每次拉取的批次大小；图池总上限见 WallpaperData.WALLHAVEN_POOL_LIMIT
+    var WALLHAVEN_BATCH_LIMIT = 12;
+    var WALLHAVEN_TOPLIST_MAX_PAGE = 10;
     var WALLHAVEN_COLORS = [
         '660000', '990000', 'cc0000', 'cc3333', 'ea4c88', '993399',
         '663399', '333399', '0066cc', '0099cc', '66cccc', '77cc33',
@@ -192,7 +194,7 @@
             if (!permission.granted) throw rssError('RSS_PERMISSION_DENIED', 'permission denied');
             var primary = permission.webMode ? Promise.reject(new Error('web proxy required')) : fetchResponse(url, timeoutMs);
             return primary.catch(function (err) {
-                if (!permission.webMode) throw err;
+                // 扩展模式直连失败（如目标站点不可达）时同样走公共代理兜底
                 var proxies = webProxyUrls(url);
                 var chain = Promise.reject(err);
                 proxies.forEach(function (proxyUrl) {
@@ -641,7 +643,7 @@
         return seed;
     }
 
-    function wallhavenSearchUrl(config) {
+    function wallhavenSearchUrl(config, page) {
         config = D.normalizeWallhavenConfig ? D.normalizeWallhavenConfig(config || {}) : (config || {});
         var url = new URL(WALLHAVEN_API);
         var query = wallhavenQuery(config);
@@ -652,6 +654,7 @@
         url.searchParams.set('order', 'desc');
         if (config.sorting === 'toplist') url.searchParams.set('topRange', config.topRange || '1M');
         if (config.sorting === 'random') url.searchParams.set('seed', wallhavenSeedParam(config));
+        if (page && page > 1) url.searchParams.set('page', String(page));
         var resolution = wallhavenResolutionParam(config);
         if (resolution) url.searchParams.set(resolution.key, resolution.value);
         if (config.ratio) url.searchParams.set('ratios', config.ratio);
@@ -715,6 +718,59 @@
         });
     }
 
+    function fetchWallhavenPage(config, page) {
+        var url = wallhavenSearchUrl(config, page);
+        return fetchApiResponse(url, 8000).then(function (response) {
+            return response.text();
+        }).then(function (text) {
+            var data = parseWallhavenJson(text);
+            return {
+                url: url,
+                meta: data && data.meta ? data.meta : {},
+                items: normalizeWallhavenItems(data)
+            };
+        });
+    }
+
+    // 增量追加取图：toplist 热门榜第 1 页几乎不变，先取第 1 页拿 last_page，
+    // 再随机取更深页码，凑满一批新图为止（最多 3 次请求）。其余排序第 1 页即可。
+    function fetchWallhavenAppendBatch(config) {
+        var existing = {};
+        (D.activeWallhavenOrder ? D.activeWallhavenOrder() : []).forEach(function (id) { existing[id] = true; });
+        var picked = [];
+
+        function pickNew(items) {
+            items.forEach(function (item) {
+                if (!item || existing[item.id]) return;
+                existing[item.id] = true;
+                picked.push(item);
+            });
+        }
+
+        return fetchWallhavenPage(config, 1).then(function (first) {
+            pickNew(first.items);
+            var lastUrl = first.url;
+            var lastPage = Math.max(1, parseInt(first.meta && first.meta.last_page, 10) || 1);
+            var maxPage = Math.min(lastPage, WALLHAVEN_TOPLIST_MAX_PAGE);
+            if (config.sorting !== 'toplist') maxPage = 1;
+            var attempts = 0;
+
+            function next() {
+                if (picked.length >= WALLHAVEN_BATCH_LIMIT || attempts >= 2 || maxPage <= 1) {
+                    return { items: picked.slice(0, WALLHAVEN_BATCH_LIMIT), queryUrl: lastUrl };
+                }
+                attempts += 1;
+                var page = 2 + Math.floor(Math.random() * (maxPage - 1));
+                return fetchWallhavenPage(config, page).then(function (result) {
+                    lastUrl = result.url;
+                    pickNew(result.items);
+                    return next();
+                });
+            }
+            return next();
+        });
+    }
+
     function downloadWallhavenItemBlob(item) {
         return fetchApiResponse(item.imageUrl, RSS_IMAGE_TIMEOUT_MS).then(function (response) {
             return blobFromImageResponse(response, item.imageUrl);
@@ -726,12 +782,19 @@
     function cacheWallhavenItems(config, items, options) {
         options = options || {};
         config = D.normalizeWallhavenConfig ? D.normalizeWallhavenConfig(config || {}) : (config || {});
-        var usable = (items || []).filter(function (item) { return item && item.id && isHttpsUrl(item.imageUrl); }).slice(0, WALLHAVEN_CACHE_LIMIT);
+        var appendMode = options.append === true;
+        var poolLimit = D.WALLHAVEN_POOL_LIMIT || 48;
+        var oldOrder = D.activeWallhavenOrder ? D.activeWallhavenOrder() : [];
+        var existing = {};
+        oldOrder.forEach(function (id) { existing[id] = true; });
+        var usable = (items || []).filter(function (item) {
+            if (!item || !item.id || !isHttpsUrl(item.imageUrl)) return false;
+            return !appendMode || !existing[item.id];
+        }).slice(0, WALLHAVEN_BATCH_LIMIT);
         var cached = [];
         var thumbs = D.loadThumbs();
         var blurThumbs = D.loadBlurThumbs ? D.loadBlurThumbs() : {};
         var meta = D.loadMeta();
-        var oldOrder = D.activeWallhavenOrder ? D.activeWallhavenOrder() : [];
         var total = usable.length;
         var queryUrl = options.queryUrl || wallhavenSearchUrl(config);
 
@@ -785,7 +848,38 @@
         }
 
         return next(0).then(function () {
-            var order = cached.map(function (item) { return item.id; });
+            var newIds = cached.map(function (item) { return item.id; });
+            var order;
+            var nextIndex = 0;
+            if (appendMode && newIds.length) {
+                // 新图插在轮换指针之后：下一张立即是新图，且未看过的旧图仍排在指针前方；
+                // 淘汰优先移除指针身后最早已看过的图，不够时才从队尾移除最久未看的图
+                var pointer = Math.max(0, Math.min(D.getActiveIndex(), oldOrder.length));
+                var seen = {};
+                function pushUnique(id) {
+                    if (seen[id]) return;
+                    seen[id] = true;
+                    order.push(id);
+                }
+                order = [];
+                oldOrder.slice(0, pointer).forEach(pushUnique);
+                newIds.forEach(pushUnique);
+                oldOrder.slice(pointer).forEach(pushUnique);
+                var overflow = order.length - poolLimit;
+                if (overflow > 0) {
+                    var shownEvicted = Math.min(overflow, pointer);
+                    order = order.slice(shownEvicted);
+                    pointer -= shownEvicted;
+                    if (overflow > shownEvicted) order = order.slice(0, order.length - (overflow - shownEvicted));
+                }
+                nextIndex = Math.max(0, Math.min(pointer, order.length - 1));
+            } else if (appendMode) {
+                order = oldOrder.slice();
+                nextIndex = Math.max(0, Math.min(D.getActiveIndex(), order.length - 1));
+            } else {
+                order = newIds;
+                nextIndex = 0;
+            }
             if (!order.length) throw wallhavenError('NO_USABLE_WALLHAVEN_IMAGES', 'no usable images');
             var keep = {};
             order.forEach(function (id) { keep[id] = true; });
@@ -817,11 +911,14 @@
             });
             D.saveThumbs(thumbs);
             if (D.saveBlurThumbs) D.saveBlurThumbs(blurThumbs);
-            if (thumbs[order[0]]) D.savePreview(thumbs[order[0]]);
+            var hasNew = newIds.length > 0;
+            var previewIndex = appendMode ? nextIndex : 0;
+            if (thumbs[order[previewIndex]] && (!appendMode || hasNew)) D.savePreview(thumbs[order[previewIndex]]);
+            var headMeta = meta[order[previewIndex]] || {};
             D.updateWallpaper(function (model) {
                 if (options.activate === true || model.activeSource === 'wallhaven') model.activeSource = 'wallhaven';
                 model.cache.order = order;
-                model.cache.index = 0;
+                model.cache.index = appendMode ? nextIndex : 0;
                 model.cache.meta = meta;
                 var now = Date.now();
                 model.providers.wallhaven.config = D.normalizeWallhavenConfig ? D.normalizeWallhavenConfig(config) : config;
@@ -829,22 +926,40 @@
                 model.providers.wallhaven.state.lastSuccessAt = now;
                 model.providers.wallhaven.state.lastError = '';
                 model.providers.wallhaven.state.lastQueryUrl = queryUrl;
-                model.providers.wallhaven.state.lastWallpaperId = cached[0].wallhavenId;
-                model.providers.wallhaven.state.lastImageUrl = cached[0].imageUrl;
+                if (headMeta.wallhavenId) model.providers.wallhaven.state.lastWallpaperId = headMeta.wallhavenId;
+                if (headMeta.imageUrl) model.providers.wallhaven.state.lastImageUrl = headMeta.imageUrl;
                 model.providers.wallhaven.state.cachedCount = order.length;
             });
             var stale = oldOrder.filter(function (id) { return !keep[id]; }).map(function (id) { return D.imgKey(id); });
             return D.idbDeleteMany(stale).then(function () {
-                return { order: order, meta: meta, thumbs: thumbs, items: cached, total: total, cached: order.length, queryUrl: queryUrl };
+                return {
+                    order: order,
+                    meta: meta,
+                    thumbs: thumbs,
+                    items: cached,
+                    total: total,
+                    cached: order.length,
+                    added: appendMode ? newIds.length : order.length,
+                    queryUrl: queryUrl
+                };
             });
         });
     }
 
     function refreshWallhavenSource(config, options) {
         options = options || {};
-        return testWallhavenSource(config).then(function (result) {
-            options.queryUrl = result.queryUrl;
-            return cacheWallhavenItems(config, result.items, options);
+        var batch = options.append === true
+            ? fetchWallhavenAppendBatch(config)
+            : testWallhavenSource(config).then(function (result) {
+                return { items: result.items, queryUrl: result.queryUrl };
+            });
+        return batch.then(function (result) {
+            return cacheWallhavenItems(config, result.items, {
+                activate: options.activate,
+                append: options.append === true,
+                onProgress: options.onProgress,
+                queryUrl: result.queryUrl
+            });
         }).catch(function (err) {
             D.updateWallpaper(function (model) {
                 model.providers.wallhaven.state.lastCheckedAt = Date.now();

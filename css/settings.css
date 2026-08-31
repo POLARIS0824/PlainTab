@@ -166,6 +166,22 @@
     border-color: var(--control-border-hover);
 }
 
+/* L1 Wallhaven 拉取一批按钮（与上传 + 按钮同一槽位，仅 wallhaven 模式显示） */
+.wallhaven-pull-btn {
+    color: rgb(var(--accent-rgb));
+}
+
+.wallhaven-pull-btn[hidden] {
+    display: none;
+}
+
+.wallhaven-pull-btn.busy,
+.wallhaven-pull-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+    pointer-events: none;
+}
+
 .panel-btn:not(.primary) {
     background: var(--settings-row-bg);
     color: var(--text-secondary);
@@ -265,6 +281,24 @@
     border: 0;
     background: transparent;
     box-shadow: none;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+    padding-right: 2px;
+    scrollbar-color: var(--settings-border-strong) transparent;
+    scrollbar-width: thin;
+}
+
+.wallpaper-gallery::-webkit-scrollbar {
+    width: 6px;
+}
+
+.wallpaper-gallery::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.wallpaper-gallery::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--settings-border);
 }
 
 .wallpaper-gallery-grid {
@@ -409,6 +443,14 @@
 
 .wallpaper-thumb[data-source="upload"] {
     cursor: grab;
+}
+
+.wallpaper-thumb.is-clickable {
+    cursor: pointer;
+}
+
+.wallpaper-thumb.is-clickable:active {
+    transform: translateY(0) scale(0.985);
 }
 
 .wallpaper-thumb[data-media-type="image-empty"] {
