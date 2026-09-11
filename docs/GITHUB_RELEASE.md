@@ -3,8 +3,21 @@
 
 **PlainTab v3.3.0**
 
-- Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/plaintab-%C2%B7-minimal-new-ta/jhpfjcefcmooplmaimgdafohdlhacjdo) or [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/liljpbjkhafejhcidneknjokfcaiebem) for automatic updates.
-- Or download the `.crx` file below and drag it into `chrome://extensions`.
+> Unofficial fork build of [PlainTab](https://github.com/kaininx/PlainTab). Not published on the Chrome Web Store or Microsoft Edge Add-ons — install it as an unpacked extension.
+
+**Install**
+
+1. Download `PlainTab-v3.3.0.zip` below and extract it anywhere.
+2. Open `chrome://extensions` (or `edge://extensions`).
+3. Turn on **Developer mode** in the top-right corner.
+4. Click **Load unpacked** and choose the extracted folder that contains `manifest.json`.
+5. Open a new tab to see PlainTab.
+
+**Notes**
+
+- Unpacked extensions do not auto-update: download and extract a newer zip over the same folder, then click **Reload** on `chrome://extensions`.
+- Chrome may warn that this is a developer-mode extension. That is normal for this install method.
+- An unpacked build has a different extension ID from the store version, so both keep separate settings and data.
 
 **Highlights**
 
@@ -22,8 +35,21 @@ v3.3.0 is a feature release about the quiet parts of the page. The new tab page 
 
 **PlainTab v3.3.0**
 
-- 前往 [Chrome 网上应用店](https://chromewebstore.google.com/detail/plaintab-%C2%B7-minimal-new-ta/jhpfjcefcmooplmaimgdafohdlhacjdo) 或 [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/liljpbjkhafejhcidneknjokfcaiebem) 安装，可自动更新。
-- 或下载下方 `.crx` 文件，拖入 `chrome://extensions` 页面即可。
+> 个人 fork 构建，不是官方发布。[kaininx/PlainTab](https://github.com/kaininx/PlainTab) 仍是维护主线；本构建未上架 Chrome 网上应用店或 Edge 加载项，只能以「加载已解压的扩展程序」的方式使用。
+
+**安装**
+
+1. 下载下方 `PlainTab-v3.3.0.zip`，解压到任意目录。
+2. 打开 `chrome://extensions`（Edge 为 `edge://extensions`）。
+3. 打开右上角的「开发者模式」。
+4. 点「加载已解压的扩展程序」，选择解压出来、内含 `manifest.json` 的那个文件夹。
+5. 打开新标签页即可看到 PlainTab。
+
+**说明**
+
+- 未打包的扩展不会自动更新：下载并解压新版本覆盖同一文件夹，然后在 `chrome://extensions` 点一次「重新加载」。
+- Chrome 可能提示这是开发者模式扩展，属于该安装方式的正常行为。
+- 未打包构建与商店版本的扩展 ID 不同，两者的设置与数据各自独立。
 
 **更新重点**
 
