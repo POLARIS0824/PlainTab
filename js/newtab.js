@@ -213,6 +213,7 @@
                 total: progress.total
             });
         }
+        if (phase === 'empty') return formatText('wallpaperDownloadEmpty', { source: sourceName });
         if (phase === 'done') return formatText('wallpaperDownloadDone', { source: sourceName });
         if (phase === 'error') return formatText('wallpaperDownloadError', { source: sourceName });
         if (progress && progress.total) {
@@ -235,20 +236,28 @@
             document.body.appendChild(wallpaperDownloadNoticeEl);
         }
 
+        var settled = phase === 'done' || phase === 'empty';
         clearTimeout(wallpaperDownloadNoticeTimer);
         wallpaperDownloadNoticeTimer = null;
-        wallpaperDownloadNoticeEl.classList.toggle('done', phase === 'done');
+        wallpaperDownloadNoticeEl.classList.toggle('done', settled);
         wallpaperDownloadNoticeEl.classList.toggle('error', phase === 'error');
         wallpaperDownloadNoticeEl.querySelector('.wallpaper-download-copy').textContent = downloadNoticeCopy(kind, phase, progress);
         wallpaperDownloadNoticeEl.hidden = false;
 
-        if (phase === 'done' || phase === 'error') {
+        if (settled || phase === 'error') {
             wallpaperDownloadNoticeTimer = setTimeout(function () {
                 if (wallpaperDownloadNoticeEl) wallpaperDownloadNoticeEl.hidden = true;
-            }, phase === 'done' ? 1600 : 2600);
+            }, phase === 'error' ? 2600 : 1600);
         }
     }
     window.showWallpaperDownloadNotice = showWallpaperDownloadNotice;
+
+    function hideWallpaperDownloadNotice() {
+        clearTimeout(wallpaperDownloadNoticeTimer);
+        wallpaperDownloadNoticeTimer = null;
+        if (wallpaperDownloadNoticeEl) wallpaperDownloadNoticeEl.hidden = true;
+    }
+    window.hideWallpaperDownloadNotice = hideWallpaperDownloadNotice;
 
     // ================================================================
     // 保存当前壁纸
@@ -449,10 +458,22 @@
         return !state.lastSuccessAt || Date.now() - state.lastSuccessAt >= interval;
     }
 
+    // 增量刷新是否到期：以「上次真正拉到新图」为锚点，而不是「上次请求成功」。
+    // 空批次不推进锚点，否则榜单饱和时会一直空转到下一个间隔。
+    // 锚点过期后再加一层冷却，避免每个新标签页都去打接口。
+    var WALLHAVEN_EMPTY_RETRY_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
     function isWallhavenRefreshDue(config, state) {
         var interval = parseInt(config.refreshIntervalMs, 10);
         if (!interval) return false;
-        return !state.lastSuccessAt || Date.now() - state.lastSuccessAt >= interval;
+        var lastAddedAt = parseInt(state.lastAddedAt, 10) || 0;
+        var lastSuccessAt = parseInt(state.lastSuccessAt, 10) || 0;
+        var lastCheckedAt = parseInt(state.lastCheckedAt, 10) || 0;
+        // 老数据没有 lastAddedAt：退回上次成功时间，从未拉取过则立刻拉取
+        var anchor = lastAddedAt || lastSuccessAt || 0;
+        if (!anchor) return true;
+        if (Date.now() - anchor < interval) return false;
+        return Date.now() - lastCheckedAt >= WALLHAVEN_EMPTY_RETRY_COOLDOWN_MS;
     }
 
     function apiEveryOpenRefreshKey(config, source) {
@@ -1221,10 +1242,17 @@
                 showWallpaperDownloadNotice('wallhaven', 'loading', progress);
             }
         }).then(function (result) {
-            showWallpaperDownloadNotice('wallhaven', 'done', {
-                cached: result.added,
-                total: result.total || result.order.length
-            });
+            // 自动刷新没拿到新图时不报「已更新」，收掉加载提示即可；
+            // 空批次不推进 lastAddedAt，冷却后还会再试
+            if (result.added) {
+                showWallpaperDownloadNotice('wallhaven', 'done', {
+                    cached: result.added,
+                    total: result.total || result.order.length
+                });
+            } else {
+                hideWallpaperDownloadNotice();
+                log('Wallhaven', 'no new images this round');
+            }
             return !!result.added;
         }).catch(function (err) {
             warn('Wallhaven', 'refresh failed: ' + (err && err.message ? err.message : err));

@@ -365,6 +365,7 @@ window.I18N["tr"] = {
         "wallpaperCurrentSource": "Seçili: {source}",
         "wallpaperDownloadDoneWithCount": "{source} görüntüleri güncellendi {cached}/{total}",
         "wallpaperDownloadDone": "{source} görüntüleri güncellendi",
+        "wallpaperDownloadEmpty": "Yeni {source} görüntüsü yok",
         "wallpaperDownloadError": "{source} görüntü indirme başarısız",
         "wallpaperDownloadProgressWithCount": "{source} görüntüleri indiriyor {current}/{total}",
         "wallpaperDownloadProgress": "{source} görüntüleri indiriyor",

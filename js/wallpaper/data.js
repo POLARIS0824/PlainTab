@@ -418,6 +418,7 @@
                 state: {
                     lastCheckedAt: 0,
                     lastSuccessAt: 0,
+                    lastAddedAt: 0,
                     lastError: '',
                     lastTestAt: 0,
                     lastTestMessage: '',
@@ -910,6 +911,9 @@
         var merged = mergeDefaults(state || {}, defaults);
         merged.lastCheckedAt = parseInt(merged.lastCheckedAt, 10) || 0;
         merged.lastSuccessAt = parseInt(merged.lastSuccessAt, 10) || 0;
+        // 最近一次真正追加到新图的时间。老数据没有该字段时保持 0，
+        // 由运行时把 lastSuccessAt 当作兜底锚点，避免升级后立刻重刷。
+        merged.lastAddedAt = parseInt(merged.lastAddedAt, 10) || 0;
         merged.lastTestAt = parseInt(merged.lastTestAt, 10) || 0;
         merged.cachedCount = Math.max(0, Math.min(WALLHAVEN_POOL_LIMIT, parseInt(merged.cachedCount, 10) || 0));
         ['lastError', 'lastTestMessage', 'lastQueryUrl', 'lastWallpaperId', 'lastImageUrl'].forEach(function (key) {

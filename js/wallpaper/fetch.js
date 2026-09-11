@@ -17,6 +17,11 @@
     // 每次拉取的批次大小；图池总上限见 WallpaperData.WALLHAVEN_POOL_LIMIT
     var WALLHAVEN_BATCH_LIMIT = 12;
     var WALLHAVEN_TOPLIST_MAX_PAGE = 10;
+    // toplist 增量拉取一张新图都没拿到时，用最近 24 小时日榜兜底
+    var WALLHAVEN_DAILY_TOP_RANGE = '1d';
+    // 单次增量拉取的请求上限：配置窗口第 1 页 + 最多 2 次随机深页 + 日榜兜底第 1 页
+    var WALLHAVEN_BATCH_MAX_REQUESTS = 4;
+    var WALLHAVEN_BATCH_DEEP_ATTEMPTS = 2;
     var WALLHAVEN_COLORS = [
         '660000', '990000', 'cc0000', 'cc3333', 'ea4c88', '993399',
         '663399', '333399', '0066cc', '0099cc', '66cccc', '77cc33',
@@ -732,43 +737,78 @@
         });
     }
 
-    // 增量追加取图：toplist 热门榜第 1 页几乎不变，先取第 1 页拿 last_page，
-    // 再随机取更深页码，凑满一批新图为止（最多 3 次请求）。其余排序第 1 页即可。
+    function wallhavenDailyConfig(config) {
+        var copy = {};
+        Object.keys(config || {}).forEach(function (key) { copy[key] = config[key]; });
+        copy.topRange = WALLHAVEN_DAILY_TOP_RANGE;
+        return copy;
+    }
+
+    // 增量追加取图：先完全按配置窗口取（第 1 页 + 随机深页）；
+    // 只有这一批一张新图都没拿到时，才用最近 24 小时日榜兜底，
+    // 保证图池不会长期停在同一个状态。其余排序没有日榜兜底。
+    // 请求数上限见 WALLHAVEN_BATCH_MAX_REQUESTS。
     function fetchWallhavenAppendBatch(config) {
+        config = D.normalizeWallhavenConfig ? D.normalizeWallhavenConfig(config || {}) : (config || {});
         var existing = {};
         (D.activeWallhavenOrder ? D.activeWallhavenOrder() : []).forEach(function (id) { existing[id] = true; });
         var picked = [];
+        var requests = 0;
+        var deepAttempts = 0;
+        var maxPage = 1;
+        var lastUrl = '';
 
         function pickNew(items) {
-            items.forEach(function (item) {
+            (items || []).forEach(function (item) {
                 if (!item || existing[item.id]) return;
                 existing[item.id] = true;
                 picked.push(item);
             });
         }
 
-        return fetchWallhavenPage(config, 1).then(function (first) {
-            pickNew(first.items);
-            var lastUrl = first.url;
-            var lastPage = Math.max(1, parseInt(first.meta && first.meta.last_page, 10) || 1);
-            var maxPage = Math.min(lastPage, WALLHAVEN_TOPLIST_MAX_PAGE);
-            if (config.sorting !== 'toplist') maxPage = 1;
-            var attempts = 0;
+        function enough() {
+            return picked.length >= WALLHAVEN_BATCH_LIMIT;
+        }
 
-            function next() {
-                if (picked.length >= WALLHAVEN_BATCH_LIMIT || attempts >= 2 || maxPage <= 1) {
-                    return { items: picked.slice(0, WALLHAVEN_BATCH_LIMIT), queryUrl: lastUrl };
+        function request(queryConfig, page) {
+            requests += 1;
+            return fetchWallhavenPage(queryConfig, page).then(function (result) {
+                lastUrl = result.url;
+                pickNew(result.items);
+                if (queryConfig === config && page === 1) {
+                    var lastPage = Math.max(1, parseInt(result.meta && result.meta.last_page, 10) || 1);
+                    maxPage = config.sorting === 'toplist' ? Math.min(lastPage, WALLHAVEN_TOPLIST_MAX_PAGE) : 1;
                 }
-                attempts += 1;
-                var page = 2 + Math.floor(Math.random() * (maxPage - 1));
-                return fetchWallhavenPage(config, page).then(function (result) {
-                    lastUrl = result.url;
-                    pickNew(result.items);
-                    return next();
-                });
+                return result;
+            });
+        }
+
+        function fillDeepPages() {
+            if (enough() || deepAttempts >= WALLHAVEN_BATCH_DEEP_ATTEMPTS || maxPage <= 1 || requests >= WALLHAVEN_BATCH_MAX_REQUESTS) {
+                return Promise.resolve();
             }
-            return next();
-        });
+            deepAttempts += 1;
+            var page = 2 + Math.floor(Math.random() * (maxPage - 1));
+            return request(config, page).then(fillDeepPages);
+        }
+
+        var dailyConfig = config.sorting === 'toplist' && config.topRange !== WALLHAVEN_DAILY_TOP_RANGE
+            ? wallhavenDailyConfig(config)
+            : null;
+
+        return Promise.resolve()
+            .then(function () {
+                return request(config, 1);
+            })
+            .then(fillDeepPages)
+            .then(function () {
+                // 配置窗口一张新图都没翻出来，才去问日榜兜底
+                if (!dailyConfig || picked.length) return null;
+                return request(dailyConfig, 1);
+            })
+            .then(function () {
+                return { items: picked.slice(0, WALLHAVEN_BATCH_LIMIT), queryUrl: lastUrl };
+            });
     }
 
     function downloadWallhavenItemBlob(item) {
@@ -924,6 +964,9 @@
                 model.providers.wallhaven.config = D.normalizeWallhavenConfig ? D.normalizeWallhavenConfig(config) : config;
                 model.providers.wallhaven.state.lastCheckedAt = now;
                 model.providers.wallhaven.state.lastSuccessAt = now;
+                // 只有真的追加到新图才更新 lastAddedAt：空批次不能算数，
+                // 否则定时刷新会一直空转到下一个间隔
+                if (hasNew) model.providers.wallhaven.state.lastAddedAt = now;
                 model.providers.wallhaven.state.lastError = '';
                 model.providers.wallhaven.state.lastQueryUrl = queryUrl;
                 if (headMeta.wallhavenId) model.providers.wallhaven.state.lastWallpaperId = headMeta.wallhavenId;

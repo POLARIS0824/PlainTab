@@ -365,6 +365,7 @@ window.I18N["vi"] = {
         "wallpaperCurrentSource": "Đang chọn: {source}",
         "wallpaperDownloadDoneWithCount": "Ảnh {source} đã cập nhật {cached}/{total}",
         "wallpaperDownloadDone": "Ảnh {source} đã cập nhật",
+        "wallpaperDownloadEmpty": "Không có ảnh mới từ {source}",
         "wallpaperDownloadError": "Tải ảnh {source} thất bại",
         "wallpaperDownloadProgressWithCount": "{source} đang tải ảnh {current}/{total}",
         "wallpaperDownloadProgress": "{source} đang tải ảnh",

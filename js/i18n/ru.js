@@ -365,6 +365,7 @@ window.I18N["ru"] = {
         "wallpaperCurrentSource": "Выбрано: {source}",
         "wallpaperDownloadDoneWithCount": "Изображения {source} обновлены {cached}/{total}",
         "wallpaperDownloadDone": "Изображения {source} обновлены",
+        "wallpaperDownloadEmpty": "Нет новых изображений {source}",
         "wallpaperDownloadError": "Не удалось скачать изображения {source}",
         "wallpaperDownloadProgressWithCount": "{source}: загрузка изображений {current}/{total}",
         "wallpaperDownloadProgress": "{source}: загрузка изображений",

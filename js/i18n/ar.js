@@ -365,6 +365,7 @@ window.I18N["ar"] = {
         "wallpaperCurrentSource": "المحدد حاليًا: {source}",
         "wallpaperDownloadDoneWithCount": "تم تحديث صور {source} {cached}/{total}",
         "wallpaperDownloadDone": "تم تحديث صور {source}",
+        "wallpaperDownloadEmpty": "لا توجد صور جديدة من {source}",
         "wallpaperDownloadError": "فشل تنزيل صور {source}",
         "wallpaperDownloadProgressWithCount": "{source} ينزل الصور {current}/{total}",
         "wallpaperDownloadProgress": "{source} ينزل الصور",

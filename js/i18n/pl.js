@@ -365,6 +365,7 @@ window.I18N["pl"] = {
         "wallpaperCurrentSource": "Wybrano: {source}",
         "wallpaperDownloadDoneWithCount": "Obrazy {source} zaktualizowane {cached}/{total}",
         "wallpaperDownloadDone": "Obrazy {source} zaktualizowane",
+        "wallpaperDownloadEmpty": "Brak nowych obrazów {source}",
         "wallpaperDownloadError": "Nie udało się pobrać obrazów {source}",
         "wallpaperDownloadProgressWithCount": "{source} pobiera obrazy {current}/{total}",
         "wallpaperDownloadProgress": "{source} pobiera obrazy",

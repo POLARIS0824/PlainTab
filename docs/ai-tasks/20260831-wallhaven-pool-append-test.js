@@ -2,14 +2,15 @@
  * Wallhaven 图池增量追加（append + evict）与设置画廊点击上墙 行为检查。
  *
  * 锁定的行为（用户视角）：
- * 1. 定时/手动追加模式：新一批图插到队列前面，旧图保留；超过 24 张淘汰最旧。
- * 2. toplist 热门榜刷新必须能取到新图（不允许永远只拉第 1 页）。
- * 3. 与池子里重复的批次不产生变化（added=0，不重置 index）。
+ * 1. 定时/手动追加模式：新一批图插到队列前面，旧图保留；超过 48 张淘汰最旧。
+ * 2. toplist 刷新先按配置窗口取；配置窗口一张新图都给不出时，用最近 24 小时日榜兜底。
+ * 3. 与池子里重复的批次不产生变化（added=0，不重置 index、不推进 lastAddedAt）。
  * 4. 设置面板 Apply（换配置）仍保持整体替换语义。
  * 5. 点击设置画廊缩略图立即把那张设为当前壁纸。
  * 6. 设置面板提供「拉取一批」按钮，点击后池子头部出现新图。
- * 7. 备份导出覆盖整个 24 张池子的 Blob。
- * 8. 新增 i18n key 在全部语言文件中存在。
+ * 7. 备份导出覆盖整个池子的 Blob。
+ * 8. 到期判定以 lastAddedAt 为锚点：空批次不消耗间隔，冷却窗口内不重复请求。
+ * 9. 新增 i18n key 在全部语言文件中存在。
  *
  * 运行（无框架，Playwright 走 npx 缓存）：
  *   set NODE_PATH=E:\Scoop\persist\nodejs-lts\npm-cache\_npx\a80a913f4f8f2557\node_modules
@@ -24,7 +25,7 @@ const indexUrl = 'file:///' + path.join(repoRoot, 'index.html').replace(/\\/g, '
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 
-const I18N_KEYS_REQUIRED = ['wallhavenPullMore', 'wallpaperThumbSetTip'];
+const I18N_KEYS_REQUIRED = ['wallhavenPullMore', 'wallpaperThumbSetTip', 'wallpaperDownloadEmpty'];
 const I18N_FILES = ['ar', 'de', 'en', 'es', 'fr', 'hi', 'it', 'ja', 'ko', 'pl', 'pt', 'ru', 'tr', 'vi', 'zh-CN', 'zh-TW'];
 
 function assert(condition, message) {
@@ -63,7 +64,12 @@ const FETCH_STUB = `
       window.__whRequests.push(target);
       const parsed = new URL(target);
       const page = Math.max(1, parseInt(parsed.searchParams.get('page') || '1', 10) || 1);
-      const ids = window.__whPageItemIds(page, 24);
+      // __whDailyIds / __whStaticIds 用来模拟「日榜有新图、配置窗口已饱和」的对照场景
+      const daily = parsed.searchParams.get('topRange') === '1d';
+      let ids;
+      if (daily && window.__whDailyIds) ids = window.__whDailyIds.slice();
+      else if (!daily && window.__whStaticIds) ids = window.__whStaticIds.slice();
+      else ids = window.__whPageItemIds(page, 24);
       const body = JSON.stringify({ data: ids.map(searchItem), meta: { current_page: page, last_page: 5, total: 120 } });
       return new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -105,6 +111,18 @@ const PAGE_HELPERS = `
   window.__order = () => (window.WallpaperData.loadWallpaper().cache.order || []).filter((id) => String(id).indexOf('wallhaven_') === 0);
   window.__blobExists = (id) => window.WallpaperData.idbGet(window.WallpaperData.imgKey(id)).then((r) => !!(r && r.blob));
   window.__state = () => window.WallpaperData.loadWallpaper().providers.wallhaven.state;
+  window.__setWhIds = (options) => {
+    const opts = options || {};
+    window.__whDailyIds = opts.daily ? opts.daily.slice() : null;
+    window.__whStaticIds = opts.static ? opts.static.slice() : null;
+  };
+  window.__setWhState = (patch) => window.WallpaperData.updateWallpaper((model) => {
+    Object.keys(patch).forEach((key) => { model.providers.wallhaven.state[key] = patch[key]; });
+  });
+  window.__setWhSorting = (sorting) => {
+    const cfg = Object.assign(window.WallpaperData.loadWallhavenConfig(), { sorting: sorting });
+    window.WallpaperData.saveWallhavenConfig(cfg);
+  };
 })();
 `;
 
@@ -258,6 +276,154 @@ async function checkToplistRandomPage(page) {
   assert(order[0].indexOf('wallhaven_p1_') !== 0, 'refreshed head image is a new (non-page-1) image');
 }
 
+async function checkConfiguredWindowKeepsPriority(page) {
+  await resetStorage(page);
+  const page1Ids = await page.evaluate(() => window.__whPageItemIds(1, 24));
+  const dailyIds = await page.evaluate(() => window.__whPageItemIds(2, 24).map((id) => 'd_' + id));
+  // 热门榜第 1 页全部已在池子里：深页还有新图，日榜不该被调用
+  await page.evaluate((payload) => {
+    window.__setWhIds({ daily: payload.daily });
+    window.WallpaperData.setActiveSource('wallhaven');
+  }, { daily: dailyIds });
+  await page.evaluate((ids) => window.__cache(ids, {}), page1Ids.slice(0, 12));
+  await page.evaluate((ids) => window.__cache(ids, { append: true }), page1Ids.slice(12));
+
+  const result = await page.evaluate(() => {
+    const cfg = window.WallpaperData.loadWallhavenConfig();
+    return window.WallpaperFetch.refreshWallhavenSource(cfg, { append: true }).then(
+      (r) => ({ ok: true, added: r && r.added }),
+      (err) => ({ ok: false, message: err && err.message })
+    );
+  });
+  assert(result.ok && result.added === 12, 'append refresh keeps working from deep pages, got ' + result.added + ' ' + (result.message || ''));
+  const ranges = await page.evaluate(() => window.__whRequests.map((u) => new URL(u).searchParams.get('topRange')));
+  assert(ranges.every((r) => r !== '1d'), 'daily fallback must stay unused while the configured window delivers, got: ' + ranges.join(','));
+  const order = await page.evaluate(() => window.__order());
+  assert(order.slice(0, 12).every((id) => id.indexOf('wallhaven_d_') !== 0), 'new images come from the configured window, not the daily list');
+}
+
+async function checkDailyToplistFallback(page) {
+  await resetStorage(page);
+  const poolIds = await page.evaluate(() => window.__whPageItemIds(9, 24));
+  const dailyIds = await page.evaluate(() => window.__whPageItemIds(1, 24).map((id) => 'd_' + id));
+  const wh = (id) => 'wallhaven_' + id;
+
+  // 配置窗口（topRange=1M）每一页都只回池子里已有的那批图，日榜是唯一的新图来源
+  await page.evaluate((payload) => {
+    window.__setWhIds({ daily: payload.daily, static: payload.static });
+    window.WallpaperData.setActiveSource('wallhaven');
+  }, { daily: dailyIds, static: poolIds });
+  await page.evaluate((ids) => window.__cache(ids, {}), poolIds.slice(0, 12));
+  await page.evaluate((ids) => window.__cache(ids, { append: true }), poolIds.slice(12));
+
+  const result = await page.evaluate(() => {
+    const cfg = window.WallpaperData.loadWallhavenConfig();
+    return window.WallpaperFetch.refreshWallhavenSource(cfg, { append: true }).then(
+      (r) => ({ ok: true, added: r && r.added }),
+      (err) => ({ ok: false, message: err && err.message })
+    );
+  });
+  assert(result.ok, 'fallback append refresh succeeds: ' + (result.message || ''));
+  assert(result.added === 12, 'saturated window still yields a batch through the daily fallback, got ' + result.added);
+
+  const ranges = await page.evaluate(() => window.__whRequests.map((u) => new URL(u).searchParams.get('topRange')));
+  assert(ranges[0] === '1M', 'configured window is queried first, got: ' + ranges.join(','));
+  assert(ranges[ranges.length - 1] === '1d' && ranges.filter((r) => r === '1d').length === 1,
+    'daily fallback runs once, last, got: ' + ranges.join(','));
+  const order = await page.evaluate(() => window.__order());
+  assert(order.slice(0, 12).join(',') === dailyIds.slice(0, 12).map(wh).join(','), 'fallback images land at the head of the pool');
+  const storedTopRange = await page.evaluate(() => window.WallpaperData.loadWallhavenConfig().topRange);
+  assert(storedTopRange === '1M', 'daily fallback must not leak into the stored config, got ' + storedTopRange);
+
+  // 对照组：非 toplist 排序没有日榜兜底，只能 added=0
+  await page.evaluate(() => window.__setWhSorting('views'));
+  const control = await page.evaluate(() => {
+    const cfg = window.WallpaperData.loadWallhavenConfig();
+    return window.WallpaperFetch.refreshWallhavenSource(cfg, { append: true }).then((r) => (r && r.added), () => -1);
+  });
+  assert(control === 0, 'non-toplist sorting has no daily fallback and stays empty, got ' + control);
+  await page.evaluate(() => window.__setWhSorting('toplist'));
+
+  // 配置窗口本身就是 1d 时不存在额外兜底请求
+  const dailyOnly = await page.evaluate(() => {
+    window.__whRequests.length = 0;
+    const cfg = Object.assign(window.WallpaperData.loadWallhavenConfig(), { topRange: '1d' });
+    window.WallpaperData.saveWallhavenConfig(cfg);
+    return window.WallpaperFetch.refreshWallhavenSource(window.WallpaperData.loadWallhavenConfig(), { append: true })
+      .then((r) => (r && r.added), () => -1);
+  });
+  const dailyOnlyRanges = await page.evaluate(() => window.__whRequests.map((u) => new URL(u).searchParams.get('topRange')));
+  assert(dailyOnly === 12 && dailyOnlyRanges.length === 1 && dailyOnlyRanges[0] === '1d',
+    'topRange=1d needs no extra fallback request, got added=' + dailyOnly + ' requests=' + dailyOnlyRanges.join(','));
+}
+
+async function checkEmptyBatchAndRetry(page) {
+  await resetStorage(page);
+  const ids = await page.evaluate(() => window.__whPageItemIds(3, 24));
+  // 日榜和配置窗口都只剩池子里已有的图：这一批必然是空的
+  await page.evaluate((payload) => {
+    window.__setWhIds({ daily: payload.ids, static: payload.ids });
+    window.WallpaperData.setActiveSource('wallhaven');
+  }, { ids: ids });
+  await page.evaluate((ids) => window.__cache(ids, {}), ids.slice(0, 12));
+  await page.evaluate((ids) => window.__cache(ids, { append: true }), ids.slice(12));
+  const before = await page.evaluate(() => window.__state());
+
+  const result = await page.evaluate(() => {
+    const cfg = window.WallpaperData.loadWallhavenConfig();
+    return window.WallpaperFetch.refreshWallhavenSource(cfg, { append: true }).then(
+      (r) => ({ ok: true, added: r && r.added }),
+      (err) => ({ ok: false, added: -1, message: err && err.message })
+    );
+  });
+  assert(result.ok && result.added === 0, 'saturated pool yields an empty batch, got ' + result.added + ' ' + (result.message || ''));
+  const after = await page.evaluate(() => window.__state());
+  assert(after.lastSuccessAt > before.lastSuccessAt, 'empty batch still records the successful request');
+  assert(after.lastAddedAt === before.lastAddedAt, 'empty batch does not advance lastAddedAt');
+
+  const day = 24 * 60 * 60 * 1000;
+  const hour = 60 * 60 * 1000;
+
+  // 锚点过期 + 冷却已过：即使 lastSuccessAt 很新，也要在下次打开时重试
+  const now = Date.now();
+  await page.evaluate((patch) => window.__setWhState(patch), {
+    lastAddedAt: now - 2 * day,
+    lastSuccessAt: now - 60 * 1000,
+    lastCheckedAt: now - 7 * hour
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.WallpaperData && window.WallpaperFetch);
+  const retried = await page.waitForFunction(() => window.__whRequests.length > 0, null, { timeout: 8000 })
+    .then(() => true, () => false);
+  assert(retried, 'stale lastAddedAt retries on the next new tab after the cooldown');
+
+  // 冷却窗口内：不重复打接口
+  const now2 = Date.now();
+  await page.evaluate((patch) => window.__setWhState(patch), {
+    lastAddedAt: now2 - 2 * day,
+    lastSuccessAt: now2 - 60 * 1000,
+    lastCheckedAt: now2 - 5 * 60 * 1000
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.WallpaperData && window.WallpaperFetch);
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2500)));
+  const inCooldown = await page.evaluate(() => window.__whRequests.length);
+  assert(inCooldown === 0, 'cooldown suppresses repeated requests, got ' + inCooldown);
+
+  // 锚点仍然新鲜：整个间隔内不请求
+  const now3 = Date.now();
+  await page.evaluate((patch) => window.__setWhState(patch), {
+    lastAddedAt: now3 - 60 * 1000,
+    lastSuccessAt: now3 - 60 * 1000,
+    lastCheckedAt: now3 - 7 * hour
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.WallpaperData && window.WallpaperFetch);
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2500)));
+  const fresh = await page.evaluate(() => window.__whRequests.length);
+  assert(fresh === 0, 'fresh lastAddedAt keeps the interval and skips the request, got ' + fresh);
+}
+
 async function checkGalleryClickToApply(page) {
   await resetStorage(page);
   const page1 = await page.evaluate(() => window.__whPageItemIds(1, 12));
@@ -362,6 +528,12 @@ function checkI18nKeys() {
     console.log('PASS pool append/evict/dedupe/replace/export');
     await checkToplistRandomPage(page);
     console.log('PASS toplist random-page append refresh');
+    await checkDailyToplistFallback(page);
+    console.log('PASS daily toplist fallback');
+    await checkConfiguredWindowKeepsPriority(page);
+    console.log('PASS configured window keeps priority');
+    await checkEmptyBatchAndRetry(page);
+    console.log('PASS empty batch keeps interval + cooldown retry');
     await checkGalleryClickToApply(page);
     console.log('PASS gallery click-to-apply');
     await checkManualPullButton(page);

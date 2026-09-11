@@ -365,6 +365,7 @@ window.I18N["zh-TW"] = {
         "wallpaperCurrentSource": "目前選擇了 {source}",
         "wallpaperDownloadDoneWithCount": "{source} 圖片已更新 {cached}/{total}",
         "wallpaperDownloadDone": "{source} 圖片已更新",
+        "wallpaperDownloadEmpty": "{source} 沒有新圖片",
         "wallpaperDownloadError": "{source} 圖片下載失敗",
         "wallpaperDownloadProgressWithCount": "{source} 正在下載圖片 {current}/{total}",
         "wallpaperDownloadProgress": "{source} 正在下載圖片",

@@ -365,6 +365,7 @@ window.I18N["hi"] = {
         "wallpaperCurrentSource": "चयनित: {source}",
         "wallpaperDownloadDoneWithCount": "{source} छवियाँ अपडेट हुईं {cached}/{total}",
         "wallpaperDownloadDone": "{source} छवियाँ अपडेट हुईं",
+        "wallpaperDownloadEmpty": "{source} की कोई नई छवि नहीं",
         "wallpaperDownloadError": "{source} छवि डाउनलोड विफल",
         "wallpaperDownloadProgressWithCount": "{source} छवियाँ डाउनलोड हो रही हैं {current}/{total}",
         "wallpaperDownloadProgress": "{source} छवियाँ डाउनलोड हो रही हैं",

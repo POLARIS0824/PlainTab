@@ -365,6 +365,7 @@ window.I18N["ja"] = {
         "wallpaperCurrentSource": "現在の選択: {source}",
         "wallpaperDownloadDoneWithCount": "{source} の画像を更新しました {cached}/{total}",
         "wallpaperDownloadDone": "{source} の画像を更新しました",
+        "wallpaperDownloadEmpty": "{source} に新しい画像はありません",
         "wallpaperDownloadError": "{source} の画像ダウンロードに失敗しました",
         "wallpaperDownloadProgressWithCount": "{source} の画像をダウンロード中 {current}/{total}",
         "wallpaperDownloadProgress": "{source} の画像をダウンロード中",

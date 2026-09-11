@@ -365,6 +365,7 @@ window.I18N["ko"] = {
         "wallpaperCurrentSource": "현재 선택: {source}",
         "wallpaperDownloadDoneWithCount": "{source} 이미지 업데이트됨 {cached}/{total}",
         "wallpaperDownloadDone": "{source} 이미지 업데이트됨",
+        "wallpaperDownloadEmpty": "{source}에 새 이미지가 없습니다",
         "wallpaperDownloadError": "{source} 이미지 다운로드 실패",
         "wallpaperDownloadProgressWithCount": "{source} 이미지 다운로드 중 {current}/{total}",
         "wallpaperDownloadProgress": "{source} 이미지 다운로드 중",

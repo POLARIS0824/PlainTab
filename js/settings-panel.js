@@ -5387,7 +5387,11 @@
                 if (notice) notice('wallhaven', 'loading', progress);
             }
         }).then(function (result) {
-            if (notice) notice('wallhaven', 'done', { cached: result && result.added, total: result && result.total });
+            if (notice) {
+                // 手动拉取必须给明确反馈：没拉到新图也要说清楚
+                if (result && result.added) notice('wallhaven', 'done', { cached: result.added, total: result.total });
+                else notice('wallhaven', 'empty');
+            }
             refreshGallery();
         }).catch(function (err) {
             warn('Wallhaven', 'manual pull failed: ' + (err && err.message ? err.message : err));
