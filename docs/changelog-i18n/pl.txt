@@ -1,4 +1,6 @@
 Historia Aktualizacji
+• v3.3.0 · Dodaje cytat dnia na stronie nowej karty (kliknięcie zmienia, najechanie kopiuje), fokus wyszukiwania dowolnym klawiszem, główny przełącznik palety poleceń, rotację puli Wallhaven z ustawianiem po kliknięciu i przycisk pobierania tapety.
+
 • v3.2.3 · Usuwa nieużywane uprawnienie tabs i aktualizuje dane wydania, aby PlainTab prosił o mniej uprawnień.
 
 • v3.2.2 · Dodano opcjonalne tapety Bing 4K UHD, pozostawiono domyślne 1080p oraz usprawniono cache, kopie, ustawienia i przechowywanie.

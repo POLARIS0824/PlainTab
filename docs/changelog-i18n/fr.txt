@@ -1,4 +1,6 @@
 Journal des mises à jour
+• v3.3.0 · Ajoute la citation du jour sur la page de nouvel onglet (cliquer pour changer, survoler pour copier), le focus du champ de recherche par n'importe quelle touche, un interrupteur principal pour la palette de commandes, la rotation du pool Wallhaven avec application au clic et un bouton de téléchargement du fond d'écran.
+
 • v3.2.3 · Supprime l'autorisation tabs inutilisée et actualise les informations de version pour que PlainTab demande moins d'autorisations.
 
 • v3.2.2 · Ajoute les fonds Bing 4K UHD en option, garde le 1080p par défaut et améliore cache, sauvegarde, réglages et stockage.

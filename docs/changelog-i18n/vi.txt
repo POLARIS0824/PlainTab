@@ -1,4 +1,6 @@
 Nhật Ký Cập Nhật
+• v3.3.0 · Thêm câu nói mỗi ngày vào trang thẻ mới (nhấp để đổi, di chuột để sao chép), tự động tập trung ô tìm kiếm bằng mọi phím, công tắc tổng cho bảng lệnh, luân chuyển kho ảnh Wallhaven với áp dụng khi nhấp và nút tải ảnh nền gốc.
+
 • v3.2.3 · Xóa quyền tabs không dùng và cập nhật thông tin phát hành để PlainTab yêu cầu ít quyền hơn.
 
 • v3.2.2 · Thêm hình nền Bing 4K UHD tùy chọn, giữ mặc định 1080p và cải thiện bộ nhớ đệm, sao lưu, cài đặt, lưu trữ.

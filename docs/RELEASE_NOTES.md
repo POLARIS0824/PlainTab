@@ -4,6 +4,36 @@
 >
 > This file contains the detailed release notes for PlainTab, maintained in Chinese and English only. For one-line localized changelog summaries, see `docs/changelog-i18n/`.
 
+## v3.3.0
+
+### 中文
+
+**摘要**：这是一版围绕新标签页安静体验的功能更新。页面底部新增每日一言，可换句也可复制出处；搜索框支持任意按键直接输入；命令面板新增总开关；壁纸侧补充了 Wallhaven 图池轮换、图库一键上墙和原图下载。
+
+**更新内容**
+
+- 新标签页底部新增每日一言，按天缓存；点击整行换一句，悬停显形的按钮可复制「正文 —— 出处」，复制失败时会自动选中文字并提示手动复制。
+- 一言文字在页面内拖选后不再触发换句，方便用系统自带的选择与复制流程。
+- 搜索框支持任意按键聚焦，页面打开后可直接输入；预聚焦避免了中文输入法首字变成英文。
+- 命令面板新增总开关，关闭后四种打开方式（快捷键、隐藏快捷键、双击、中键）全部停用，中键恢复浏览器默认行为。
+- Wallhaven 图池改为增量追加轮换：新图追加进本地队列，不再整体替换；设置页新增手动拉取一批新图。
+- 图库缩略图点击即可设为当前壁纸，右下角新增悬浮按钮，可下载当前壁纸原图。
+- 本次不涉及存储结构变化，`LS_VERSION` 与 IndexedDB 版本保持不变，导入导出兼容既有数据。
+
+### English
+
+**Summary**: This is a feature release about the quiet parts of the new tab page. A daily quote now sits at the bottom of the page and can be refreshed or copied together with its source, the search box accepts the first keystroke right away, the command palette gained a master switch, and wallpaper handling gained Wallhaven pool rotation, one-click gallery apply, and full-resolution download.
+
+**Details**
+
+- Added a daily quote at the bottom of the new tab page, cached per day: click the line for another quote, or hover to reveal a button that copies the quote together with its source. If copying fails, the text is selected and a manual-copy hint is shown.
+- Selecting quote text no longer replaces it, so the text can be copied with the browser's own selection flow.
+- Any key now focuses the search box, and the pre-focused input keeps an IME's first character from turning into Latin text.
+- Added a master switch for the command palette; when it is off, all four open methods (hotkey, hidden hotkey, double-click, middle-click) are disabled and middle-click returns to the browser default.
+- Wallhaven now appends new images to the local pool instead of replacing it, with a manual pull action in settings.
+- Gallery thumbnails apply the wallpaper with a single click, and a floating button downloads the current wallpaper in its original resolution.
+- No storage structure change: `LS_VERSION` and the IndexedDB version stay the same, and import/export remains compatible with existing data.
+
 ## v3.2.3
 
 ### 中文

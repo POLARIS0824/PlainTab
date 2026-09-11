@@ -82,6 +82,8 @@ Support
 
 Aktuelle Updates
 
+• v3.3.0: Fügt der neuen Tab-Seite das Zitat des Tages hinzu (Klicken zum Wechseln, Überfahren zum Kopieren), dazu Fokus im Suchfeld bei beliebiger Taste, einen Hauptschalter für die Befehlspalette, Wallhaven-Pool-Rotation mit Anwenden per Klick und einen Download-Button für das aktuelle Hintergrundbild.
+
 • v3.2.3: Entfernt die ungenutzte tabs-Berechtigung und aktualisiert die Release-Daten, damit PlainTab weniger Berechtigungen anfordert.
 
 • v3.2.2: optionale Bing-4K-UHD-Hintergründe, 1080p bleibt Standard, Cache, Backup, Einstellungen und Speicherung verbessert.

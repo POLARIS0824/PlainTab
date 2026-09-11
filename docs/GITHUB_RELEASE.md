@@ -1,34 +1,38 @@
 
 ---
 
-**PlainTab v3.2.3**
+**PlainTab v3.3.0**
 
 - Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/plaintab-%C2%B7-minimal-new-ta/jhpfjcefcmooplmaimgdafohdlhacjdo) or [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/liljpbjkhafejhcidneknjokfcaiebem) for automatic updates.
 - Or download the `.crx` file below and drag it into `chrome://extensions`.
 
 **Highlights**
 
-- Removed the unused `tabs` permission from the extension manifest.
-- PlainTab now asks for fewer browser permissions while keeping existing new-tab, search, scripting, and optional wallpaper-source behavior.
-- Refreshed the release notes, store update summaries, and localized version badges for v3.2.3.
+- Added the daily quote at the bottom of the new tab page: click it for another line, hover to copy it together with its source.
+- Any key now focuses the search box, so you can start typing as soon as the page opens.
+- Added a master switch for the command palette, so it can be turned off completely.
+- Wallhaven now rotates through an incrementally growing pool, and a new batch can be pulled on demand.
+- Gallery thumbnails can be set as the wallpaper with a click, and a floating button downloads the current wallpaper in its original size.
 
 **Summary**
 
-v3.2.3 is a small permission cleanup release. PlainTab removes an unused manifest permission so the extension requests less from the browser, while keeping the current new-tab experience and wallpaper features unchanged. The release materials were refreshed to match the new version.
+v3.3.0 is a feature release about the quiet parts of the page. The new tab page now carries a daily quote you can refresh or copy along with its source, the search box is ready for the first keystroke, and the command palette can be disabled entirely for a more minimal setup. Wallpaper handling improved as well: Wallhaven rotates through a growing pool with manual pull, gallery thumbnails apply with a single click, and the current wallpaper can be downloaded in its original resolution.
 
 ---
 
-**PlainTab v3.2.3**
+**PlainTab v3.3.0**
 
 - 前往 [Chrome 网上应用店](https://chromewebstore.google.com/detail/plaintab-%C2%B7-minimal-new-ta/jhpfjcefcmooplmaimgdafohdlhacjdo) 或 [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/liljpbjkhafejhcidneknjokfcaiebem) 安装，可自动更新。
 - 或下载下方 `.crx` 文件，拖入 `chrome://extensions` 页面即可。
 
 **更新重点**
 
-- 移除扩展 manifest 中未使用的 `tabs` 权限。
-- PlainTab 请求的浏览器权限更少，同时保留现有新标签页、搜索、脚本交互和可选壁纸来源能力。
-- 同步更新 v3.2.3 发布说明、商店更新摘要和多语言版本徽章。
+- 新标签页底部新增每日一言：点击换一句，悬停可复制并带上出处。
+- 任意按键即可聚焦搜索框，打开页面就能直接输入。
+- 命令面板新增总开关，可以完全停用所有打开方式。
+- Wallhaven 图池改为增量追加轮换，并支持按需手动拉取一批新图。
+- 图库缩略图点击即可设为壁纸，右下角悬浮按钮可下载当前壁纸原图。
 
 **总结**
 
-v3.2.3 是一版很小的权限清理更新。PlainTab 移除了一个未使用的 manifest 权限，让扩展向浏览器请求的权限更少，同时不改变当前新标签页体验和壁纸功能。本次也同步刷新了公开发布资料。
+v3.3.0 是一版围绕页面安静体验的功能更新。新标签页底部新增每日一言，可随时换一句，也可以复制并带上出处；搜索框在页面打开后即可用任意按键直接输入；命令面板新增总开关，需要极简时可以完全关闭。壁纸部分同样有改进：Wallhaven 图池改为增量追加轮换并支持手动拉取，图库缩略图点击即可上墙，右下角悬浮按钮可以下载当前壁纸原图。
