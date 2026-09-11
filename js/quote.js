@@ -1,6 +1,6 @@
 /**
  * PlainTabQuote - 每日一言（hitokoto）。
- * 按天缓存于 ptab_ui.quote，点击可换一句；失败静默。
+ * 按天缓存于 ptab_ui.quote，点击可换一句，悬停可复制；失败静默。
  */
 (function () {
     'use strict';
@@ -14,6 +14,7 @@
     var el = null;
     var textEl = null;
     var fromEl = null;
+    var copyEl = null;
     var fetching = false;
 
     function text(key, fallback) {
@@ -63,6 +64,84 @@
 
     function updateTitle() {
         if (el) el.title = text('quoteRefreshTitle', 'Next quote');
+        if (copyEl) {
+            var label = text('quoteCopyTitle', 'Copy this quote');
+            copyEl.title = label;
+            copyEl.setAttribute('aria-label', label);
+        }
+    }
+
+    function toast(key, fallback, variant) {
+        var Notice = window.PlainTabNotice;
+        if (!Notice || !Notice.toast) return;
+        Notice.toast({ message: text(key, fallback), variant: variant });
+    }
+
+    function selectQuoteText() {
+        var selection = window.getSelection && window.getSelection();
+        if (!selection || !textEl) return;
+        var range = document.createRange();
+        range.selectNodeContents(textEl);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    function copyFallback(value) {
+        var area = document.createElement('textarea');
+        area.value = value;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.top = '0';
+        area.style.left = '-9999px';
+        document.body.appendChild(area);
+        area.select();
+        var copied = false;
+        try {
+            copied = typeof document.execCommand === 'function' && document.execCommand('copy');
+        } catch (e) {
+            copied = false;
+        }
+        document.body.removeChild(area);
+        if (copyEl && document.activeElement === document.body) copyEl.focus({ preventScroll: true });
+        return copied ? Promise.resolve() : Promise.reject(new Error('copy rejected'));
+    }
+
+    function writeClipboard(value) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(value).catch(function () {
+                return copyFallback(value);
+            });
+        }
+        return copyFallback(value);
+    }
+
+    function quoteShareText() {
+        var value = textEl && textEl.textContent ? textEl.textContent.trim() : '';
+        var from = fromEl && fromEl.textContent ? fromEl.textContent.trim() : '';
+        if (!value) return '';
+        return from ? value + ' —— ' + from : value;
+    }
+
+    function hasQuoteSelection() {
+        var selection = window.getSelection && window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+        return !!(el && el.contains(selection.getRangeAt(0).commonAncestorContainer));
+    }
+
+    function copyQuote(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        var value = quoteShareText();
+        if (!value) return;
+        // 必须在本次用户激活内发起写入，延后到 rAF / setTimeout 会丢失激活态
+        writeClipboard(value).then(function () {
+            toast('quoteCopied', 'Copied', 'success');
+        }).catch(function () {
+            selectQuoteText();
+            toast('quoteCopyFailed', 'Copy failed — select the text to copy', 'error');
+        });
     }
 
     function show() {
@@ -112,10 +191,15 @@
         el = document.getElementById('quoteLine');
         textEl = document.getElementById('quoteText');
         fromEl = document.getElementById('quoteFrom');
+        copyEl = document.getElementById('quoteCopy');
         el.addEventListener('click', function (e) {
             e.stopPropagation();
+            if (e.target && e.target.closest && e.target.closest('.quote-copy')) return;
+            // 拖选文字后在原元素上松手同样会触发 click，此时不应换句
+            if (hasQuoteSelection()) return;
             loadNewQuote(false);
         });
+        if (copyEl) copyEl.addEventListener('click', copyQuote);
         var prevLangChange = window.onLangChange;
         window.onLangChange = function (lang) {
             updateTitle();

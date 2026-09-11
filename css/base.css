@@ -460,7 +460,76 @@ html[data-reduced-motion="true"] *::after {
     display: none;
 }
 
+.quote-copy {
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 命中区必须紧贴一言边界：用 margin 留空隙会让指针移向按钮时先离开 :hover
+       命中区，按钮随即隐藏且不可点。与文字之间的视觉间隙放在 padding 里。 */
+    width: 38px;
+    height: 28px;
+    padding: 0 0 0 10px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transform: translateY(-50%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.quote-copy svg {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+/* 只在真正支持悬停的设备上显形，触屏保持完全惰性 */
+@media (hover: hover) {
+    .quote-line:hover .quote-copy {
+        opacity: 0.8;
+        pointer-events: auto;
+    }
+
+    .quote-line:hover .quote-copy:hover {
+        opacity: 1;
+    }
+}
+
+.quote-copy:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+/* 父级 .loading 的 pointer-events 会被上面的悬停规则 override，需在后压回 */
+.quote-line.loading .quote-copy {
+    pointer-events: none;
+}
+
 /* ========== 响应式 ========== */
+/* 窄窗口下复制按钮会顶出视口，改为浮在文字上方居中 */
+@media (max-width: 640px) {
+    .quote-copy {
+        top: auto;
+        bottom: 100%;
+        left: 50%;
+        width: 28px;
+        height: 32px;
+        padding: 0 0 4px 0;
+        transform: translateX(-50%);
+    }
+}
+
 @media (max-width: 480px) {
     .lang-btn {
         top: 16px;
