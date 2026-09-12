@@ -1955,6 +1955,13 @@
     // 启动引导
     // ================================================================
 
+    function schedulePendingBlobCleanup() {
+        if (!D.flushPendingWallpaperDeletes) return;
+        var run = function () { D.flushPendingWallpaperDeletes(); };
+        if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 4000 });
+        else setTimeout(run, 1500);
+    }
+
     function init() {
         SP = window.SettingsPanel;
 
@@ -1971,6 +1978,7 @@
             scheduleQuote();
             scheduleWallpaperSaveButton();
             scheduleOnboardingHint();
+            schedulePendingBlobCleanup();
         });
     }
 

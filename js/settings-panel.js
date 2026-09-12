@@ -196,6 +196,9 @@
     var apiNoticeToken = 0;
     var wallhavenNoticeTimer = null;
     var wallhavenNoticeToken = 0;
+    var WALLPAPER_UNDO_WINDOW_MS = 6000;
+    var wallpaperUndoBatch = [];
+    var wallpaperUndoTimer = null;
     var uploadFilePickerSession = null;
     var FOLDER_GALLERY_LIMIT = 12;
     var FOLDER_THUMB_LOOKAHEAD = 12;
@@ -6381,10 +6384,150 @@
         });
     }
 
+    // ================================================================
+    // 软删除与撤销
+    // ================================================================
+
+    function createWallpaperUndoEntry(kind, id, order) {
+        var thumbs = D.loadThumbs();
+        var blurThumbs = D.loadBlurThumbs();
+        return {
+            kind: kind,
+            id: id,
+            imgKey: D.imgKey ? D.imgKey(id) : '',
+            orderBefore: order ? order.slice() : null,
+            thumb: thumbs[id] || null,
+            meta: D.loadMeta()[id] || null,
+            blurThumb: blurThumbs[id] || null,
+            displayedId: currentWallpaperId(),
+            activeMediaBefore: uploadConfig().activeMedia,
+            wasActiveVideo: false,
+            poolEmptied: false
+        };
+    }
+
+    function enqueueWallpaperUndo(entry) {
+        wallpaperUndoBatch.push(entry);
+        if (wallpaperUndoTimer) clearTimeout(wallpaperUndoTimer);
+        wallpaperUndoTimer = setTimeout(function () {
+            wallpaperUndoTimer = null;
+            wallpaperUndoBatch = [];
+            if (D.flushPendingWallpaperDeletes) D.flushPendingWallpaperDeletes();
+        }, WALLPAPER_UNDO_WINDOW_MS);
+        showWallpaperUndoToast();
+    }
+
+    function showWallpaperUndoToast() {
+        if (!window.PlainTabNotice || !window.PlainTabNotice.toast) return;
+        var count = wallpaperUndoBatch.length;
+        var message = count > 1
+            ? formatLocalizedText('wallpaperDeletedCount', { count: count })
+            : tr('wallpaperDeleted');
+        window.PlainTabNotice.toast({
+            message: message,
+            duration: WALLPAPER_UNDO_WINDOW_MS,
+            action: { label: tr('actionUndo'), onClick: undoWallpaperDelete }
+        });
+    }
+
+    // 以批次首个快照的完整 order 为基准重建顺序，保留仍存活项与批次项的原始相对位置
+    function restoreWallpaperUndoOrder(kind, entries) {
+        var base = entries[0].orderBefore;
+        var surviving = kind === 'wallhaven' && D.activeWallhavenOrder ? D.activeWallhavenOrder() : D.loadOrder();
+        var batchIds = [];
+        entries.forEach(function (entry) {
+            if (entry.id && batchIds.indexOf(entry.id) === -1) batchIds.push(entry.id);
+        });
+        var wanted = base ? base.filter(function (id) {
+            return surviving.indexOf(id) !== -1 || batchIds.indexOf(id) !== -1;
+        }) : [];
+        var extras = surviving.filter(function (id) { return wanted.indexOf(id) === -1; });
+        var finalOrder = wanted.concat(extras);
+        if (kind === 'wallhaven') {
+            if (D.saveWallhavenOrder) D.saveWallhavenOrder(finalOrder);
+        } else {
+            D.saveOrder(finalOrder);
+        }
+    }
+
+    function restoreWallpaperUndoEntry(entry) {
+        if (entry.thumb) {
+            var thumbs = D.loadThumbs();
+            thumbs[entry.id] = entry.thumb;
+            D.saveThumbs(thumbs);
+        }
+        if (entry.meta) {
+            var meta = D.loadMeta();
+            meta[entry.id] = entry.meta;
+            D.saveMeta(meta);
+        }
+        if (entry.blurThumb && D.saveBlurThumb) {
+            D.saveBlurThumb(entry.id, entry.blurThumb.blur, entry.blurThumb.thumb);
+        }
+
+        if (entry.kind === 'upload-video') {
+            if (D.setUploadVideoId) D.setUploadVideoId(entry.id);
+            if (entry.wasActiveVideo && D.setUploadActiveMedia) D.setUploadActiveMedia('video');
+        }
+    }
+
+    function undoWallpaperDelete() {
+        if (wallpaperUndoTimer) {
+            clearTimeout(wallpaperUndoTimer);
+            wallpaperUndoTimer = null;
+        }
+        var batch = wallpaperUndoBatch;
+        wallpaperUndoBatch = [];
+        if (!batch.length) return;
+        if (D.cancelWallpaperBlobDelete) {
+            var keys = batch.map(function (entry) { return entry.imgKey; });
+            if (!D.cancelWallpaperBlobDelete(keys)) return;
+        }
+
+        var first = batch[0];
+        ['upload-image', 'wallhaven'].forEach(function (kind) {
+            var entries = batch.filter(function (entry) { return entry.kind === kind; });
+            if (entries.length) restoreWallpaperUndoOrder(kind, entries);
+        });
+        batch.forEach(restoreWallpaperUndoEntry);
+
+        var needsReload = batch.some(function (entry) {
+            return entry.poolEmptied || (entry.kind === 'upload-video' && entry.wasActiveVideo);
+        });
+
+        if (first.kind === 'upload-video') {
+            currentMode = 'local';
+            if (first.wasActiveVideo) {
+                var videoThumb = D.loadThumbs()[uploadVideoId()] || null;
+                D.savePreview(videoThumb);
+            }
+        } else {
+            var order = first.kind === 'wallhaven' && D.activeWallhavenOrder ? D.activeWallhavenOrder() : D.loadOrder();
+            var pos = order.indexOf(first.displayedId);
+            if (pos !== -1) {
+                // 预览始终指向展示项的下一张。不 reload 时展示项 = order[(index-1+len)%len]，
+                // reload 会展示 order[index] 并把指针推进到 index+1，因此两种场景 index 写入值相差 1。
+                D.saveActiveIndex((pos + 1) % order.length);
+                if (uploadConfig().activeMedia !== 'video') saveNextPreviewFromOrder(order, D.loadThumbs());
+                if (needsReload) D.saveActiveIndex(pos);
+            }
+            currentMode = first.kind === 'wallhaven' ? 'wallhaven' : 'local';
+        }
+        if (first.poolEmptied && first.kind !== 'upload-video' &&
+            first.activeMediaBefore !== 'video' && D.setUploadActiveMedia) {
+            D.setUploadActiveMedia('image');
+        }
+        updateModeChip();
+        refreshGallery();
+        if (needsReload && window.reloadWallpaper) window.reloadWallpaper();
+    }
+
     function deleteWallhavenImage(id) {
         if (!D.isWallhavenId || !D.isWallhavenId(id)) return;
         var order = D.activeWallhavenOrder ? D.activeWallhavenOrder() : [];
         if (!order.length) return;
+        var entry = createWallpaperUndoEntry('wallhaven', id, order);
+
         var newOrder = order.filter(function (oid) { return oid !== id; });
         if (D.saveWallhavenOrder) D.saveWallhavenOrder(newOrder);
 
@@ -6396,6 +6539,7 @@
         var meta = D.loadMeta();
         delete meta[id];
         D.saveMeta(meta);
+        entry.poolEmptied = !newOrder.length;
 
         if (!newOrder.length) {
             D.saveActiveIndex(0);
@@ -6403,24 +6547,26 @@
             D.setActiveSource('bing');
             currentMode = 'bing';
             updateModeChip();
-            return D.idbDelete(D.imgKey(id)).then(function () {
-                refreshGallery();
-                if (window.reloadWallpaper) window.reloadWallpaper();
-            }).catch(function () { });
+            if (D.queueWallpaperBlobDelete) D.queueWallpaperBlobDelete(entry.imgKey);
+            refreshGallery();
+            if (window.reloadWallpaper) window.reloadWallpaper();
+            enqueueWallpaperUndo(entry);
+            return;
         }
 
         var nextId = newOrder[D.getActiveIndex() % newOrder.length];
         saveNextPreviewFromOrder(newOrder, thumbs);
         scheduleBlurThumbForId(nextId, wallpaperBlur);
 
-        return D.idbDelete(D.imgKey(id)).then(function () {
-            refreshGallery();
-        }).catch(function (e) { warn('Wallhaven', 'delete blob failed: ' + (e && e.message)); });
+        if (D.queueWallpaperBlobDelete) D.queueWallpaperBlobDelete(entry.imgKey);
+        refreshGallery();
+        enqueueWallpaperUndo(entry);
     }
 
     function deleteLocalImage(id) {
         var order = D.loadOrder();
         if (!order.length) return;
+        var entry = createWallpaperUndoEntry('upload-image', id, order);
 
         var newOrder = order.filter(function (oid) { return oid !== id; });
         D.saveOrder(newOrder);
@@ -6433,6 +6579,7 @@
         var meta = D.loadMeta();
         delete meta[id];
         D.saveMeta(meta);
+        entry.poolEmptied = newOrder.length === 0;
 
         if (newOrder.length === 0) {
             D.saveActiveIndex(0);
@@ -6447,23 +6594,27 @@
                 currentMode = 'bing';
             }
             updateModeChip();
-            return D.idbDelete(D.imgKey(id)).then(function () {
-                refreshGallery();
-                if (window.reloadWallpaper) window.reloadWallpaper();
-            }).catch(function () {});
+            if (D.queueWallpaperBlobDelete) D.queueWallpaperBlobDelete(entry.imgKey);
+            refreshGallery();
+            if (window.reloadWallpaper) window.reloadWallpaper();
+            enqueueWallpaperUndo(entry);
+            return;
         }
 
         var nextId = newOrder[D.getActiveIndex() % newOrder.length];
         saveNextPreviewFromOrder(newOrder, thumbs);
         scheduleBlurThumbForId(nextId, wallpaperBlur);
 
-        return D.idbDelete(D.imgKey(id)).then(function () {
-            refreshGallery();
-        }).catch(function (e) { warn('Local', 'delete blob failed: ' + (e && e.message)); });
+        if (D.queueWallpaperBlobDelete) D.queueWallpaperBlobDelete(entry.imgKey);
+        refreshGallery();
+        enqueueWallpaperUndo(entry);
     }
 
     function deleteUploadVideo() {
         var id = uploadVideoId();
+        var entry = createWallpaperUndoEntry('upload-video', id, null);
+        entry.wasActiveVideo = uploadConfig().activeMedia === 'video';
+
         var thumbs = D.loadThumbs();
         delete thumbs[id];
         D.saveThumbs(thumbs);
@@ -6487,11 +6638,11 @@
             }
         }
 
-        return D.idbDelete(D.imgKey(id)).then(function () {
-            refreshGallery();
-            updateModeChip();
-            if (window.reloadWallpaper) window.reloadWallpaper();
-        }).catch(function (e) { warn('Local', 'delete video failed: ' + (e && e.message)); });
+        if (D.queueWallpaperBlobDelete) D.queueWallpaperBlobDelete(entry.imgKey);
+        refreshGallery();
+        updateModeChip();
+        if (window.reloadWallpaper) window.reloadWallpaper();
+        enqueueWallpaperUndo(entry);
     }
 
     // ================================================================

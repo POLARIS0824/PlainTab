@@ -129,18 +129,34 @@
         return Promise.resolve(true);
     }
 
+    function hideToast() {
+        clearTimeout(toastTimer);
+        toastStack.classList.remove('active');
+        toastStack.hidden = true;
+    }
+
     function appToast(options) {
         if (typeof options === 'string') options = { message: options };
         options = options || {};
         ensureToastStack();
         clearTimeout(toastTimer);
         toastStack.dataset.variant = options.variant || 'default';
+        var action = options.action && options.action.label ? options.action : null;
         toastStack.innerHTML =
             '<div class="pt-notice-toast">' +
                 '<span class="pt-notice-toast-dot" aria-hidden="true"></span>' +
                 '<span class="pt-notice-toast-copy"></span>' +
+                (action ? '<button class="pt-notice-toast-action" type="button"></button>' : '') +
             '</div>';
         toastStack.querySelector('.pt-notice-toast-copy').textContent = options.message || '';
+        if (action) {
+            var actionBtn = toastStack.querySelector('.pt-notice-toast-action');
+            actionBtn.textContent = action.label;
+            actionBtn.addEventListener('click', function () {
+                hideToast();
+                if (typeof action.onClick === 'function') action.onClick();
+            });
+        }
         toastStack.hidden = false;
         requestAnimationFrame(function () { toastStack.classList.add('active'); });
         toastTimer = setTimeout(function () {

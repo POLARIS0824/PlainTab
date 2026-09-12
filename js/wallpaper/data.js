@@ -20,6 +20,7 @@
         WALLPAPER_THUMBS: 'ptab_wallpaper_thumbs',
         WALLPAPER_BLUR_THUMBS: 'ptab_wallpaper_blur_thumbs',
         WALLPAPER_PREVIEW: 'ptab_wallpaper_preview',
+        PENDING_BLOB_DELETES: 'ptab_wallpaper_pending_deletes',
         UI: 'ptab_ui',
         SHORTCUTS: 'ptab_shortcuts',
         SHORTCUT_ICONS: 'ptab_shortcut_icons'
@@ -1658,6 +1659,95 @@
     }
 
     // ================================================================
+    // 待删 Blob 队列（软删除的 GC 意图清单）
+    // 引用先删、大 Blob 延迟删除，撤销窗口内可恢复；清单是纯可丢弃缓存，
+    // 缺失或过期都不会被误读，因此不参与 LS_VERSION 迁移。
+    // ================================================================
+
+    function loadPendingBlobDeletes() {
+        var list = readJSON(KEYS.PENDING_BLOB_DELETES, []);
+        return (Array.isArray(list) ? list : []).map(String).filter(Boolean);
+    }
+
+    function savePendingBlobDeletes(list) {
+        writeJSON(KEYS.PENDING_BLOB_DELETES, Array.isArray(list) ? list : []);
+    }
+
+    function queueWallpaperBlobDelete(key) {
+        key = String(key || '');
+        if (!key) return;
+        var list = loadPendingBlobDeletes();
+        if (list.indexOf(key) !== -1) return;
+        list.push(key);
+        savePendingBlobDeletes(list);
+    }
+
+    // 返回是否全部仍处于待删状态；已过期（Blob 可能已删）时返回 false，撤销需放弃
+    function cancelWallpaperBlobDelete(keys) {
+        var wanted = (Array.isArray(keys) ? keys : [keys]).map(String).filter(Boolean);
+        if (!wanted.length) return true;
+        var list = loadPendingBlobDeletes();
+        var allPending = wanted.every(function (key) { return list.indexOf(key) !== -1; });
+        if (allPending) {
+            savePendingBlobDeletes(list.filter(function (key) { return wanted.indexOf(key) === -1; }));
+        }
+        return allPending;
+    }
+
+    // 删除前校验该 Blob 仍无引用，避免误删窗口期内重新写入的记录（如固定 id 的上传视频）
+    function isWallpaperBlobReferenced(key) {
+        key = String(key || '');
+        var model = loadWallpaper();
+        var thumbs = loadThumbs();
+        var blurThumbs = loadBlurThumbs();
+        var meta = model.cache && model.cache.meta ? model.cache.meta : {};
+        var order = model.cache && model.cache.order ? model.cache.order : [];
+        var videoId = model.providers && model.providers.upload && model.providers.upload.state
+            ? model.providers.upload.state.videoId : '';
+
+        function referencesId(id) {
+            return order.indexOf(id) !== -1 ||
+                Object.prototype.hasOwnProperty.call(thumbs, id) ||
+                Object.prototype.hasOwnProperty.call(blurThumbs, id) ||
+                Object.prototype.hasOwnProperty.call(meta, id);
+        }
+
+        if (key === DB.BING_BLOB) return true;
+        if (key === DB.API_BLOB) return referencesId('api') || !!(model.providers.api.state && model.providers.api.state.lastImageUrl);
+        if (key.indexOf(DB.UPLOAD_PREFIX) === 0) {
+            var id = 'upload_' + key.slice(DB.UPLOAD_PREFIX.length);
+            if (id === UPLOAD_VIDEO_ID) return !!videoId || referencesId(id);
+            return referencesId(id);
+        }
+        if (key.indexOf(DB.RSS_PREFIX) === 0) return referencesId('rss_' + key.slice(DB.RSS_PREFIX.length));
+        if (key.indexOf(DB.WALLHAVEN_PREFIX) === 0) return referencesId('wallhaven_' + key.slice(DB.WALLHAVEN_PREFIX.length));
+        return true;
+    }
+
+    // 真正删除清单里已无引用的 Blob；仍被引用的键移出清单。失败时把键放回，等待下次重试。
+    function flushPendingWallpaperDeletes() {
+        var list = loadPendingBlobDeletes();
+        if (!list.length) return Promise.resolve(false);
+        var stale = [];
+        var keep = [];
+        list.forEach(function (key) {
+            (isWallpaperBlobReferenced(key) ? keep : stale).push(key);
+        });
+        savePendingBlobDeletes(keep);
+        if (!stale.length) return Promise.resolve(false);
+        return idbDeleteMany(stale).then(function () {
+            return true;
+        }).catch(function () {
+            var current = loadPendingBlobDeletes();
+            stale.forEach(function (key) {
+                if (current.indexOf(key) === -1 && !isWallpaperBlobReferenced(key)) current.push(key);
+            });
+            savePendingBlobDeletes(current);
+            return false;
+        });
+    }
+
+    // ================================================================
     // Bing 元数据
     // ================================================================
 
@@ -1948,6 +2038,12 @@
         isFolderId: isFolderId,
         hasSourceCache: hasSourceCache,
         clearWallpaperSourceCache: clearWallpaperSourceCache,
+
+        // 软删除待删 Blob 队列
+        queueWallpaperBlobDelete: queueWallpaperBlobDelete,
+        cancelWallpaperBlobDelete: cancelWallpaperBlobDelete,
+        flushPendingWallpaperDeletes: flushPendingWallpaperDeletes,
+        isWallpaperBlobReferenced: isWallpaperBlobReferenced,
         rssBlobKey: rssBlobKey,
         activeRssOrder: activeRssOrder,
         wallhavenBlobKey: wallhavenBlobKey,

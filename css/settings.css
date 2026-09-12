@@ -1077,6 +1077,11 @@ input[type="file"] {
     backdrop-filter: blur(14px);
 }
 
+/* 仅在显示状态开启指针事件：容器保持 none，避免隐藏层挡住页面点击 */
+.pt-notice-toast-stack.active .pt-notice-toast {
+    pointer-events: auto;
+}
+
 .pt-notice-toast-dot {
     width: 8px;
     height: 8px;
@@ -1090,6 +1095,29 @@ input[type="file"] {
     font-size: 13px;
     line-height: 1.45;
     color: var(--text-secondary);
+}
+
+.pt-notice-toast-action {
+    flex: 0 0 auto;
+    margin-left: 2px;
+    padding: 3px 10px;
+    border: 1px solid rgba(var(--accent-rgb), 0.42);
+    border-radius: var(--radius-md);
+    background: rgba(var(--accent-rgb), 0.16);
+    color: rgba(var(--accent-rgb), 1);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background 0.16s ease;
+}
+
+.pt-notice-toast-action:hover {
+    background: rgba(var(--accent-rgb), 0.26);
+}
+
+.pt-notice-toast-action:active {
+    background: rgba(var(--accent-rgb), 0.32);
 }
 
 .pt-notice-toast-stack[data-variant="error"] .pt-notice-toast-dot {

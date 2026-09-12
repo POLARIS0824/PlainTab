@@ -51,6 +51,7 @@
 - `ptab_wallpaper`：壁纸来源、配置、运行状态、缓存顺序和元数据模型。
 - `ptab_wallpaper_thumbs`：普通壁纸缩略图缓存。
 - `ptab_wallpaper_blur_thumbs`：派生模糊缩略图缓存。
+- `ptab_wallpaper_pending_deletes`：软删除待删 Blob 键队列（GC 意图清单）。纯可丢弃缓存：缺失或过期都不会被误读，不参与 `LS_VERSION` 迁移；启动空闲阶段经 `flushPendingWallpaperDeletes()` 校验引用后清理。
 - `ptab_shortcuts`：快捷链接、隐藏空间、最近项和命令面板设置。
 - `ptab_shortcut_icons`：快捷链接图标缓存；物理 key 保留，但读写必须走数据层 API。
 

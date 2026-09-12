@@ -93,6 +93,7 @@ Bing 缓存仍使用固定 Blob key `ptab_wallpaper_blob_bing`。`providers.bing
 - 上传图片保存在 `ptab_wallpaper_blob_upload_*`；顺序保存在 `cache.order`。
 - 上传视频固定保存在 `upload_video` / `ptab_wallpaper_blob_upload_video`，并由 `providers.upload.config.activeMedia` 与图片画廊互斥切换。
 - 删除上传图时，必须先移除 order/meta/thumb/blur-thumb 引用，再删除 Blob。
+- 画廊手动删除（上传图 / 上传视频 / Wallhaven 项）走软删除：引用立即移除，Blob 经 `queueWallpaperBlobDelete()` 延迟到撤销窗口（6 秒）后由 `flushPendingWallpaperDeletes()` 校验无引用再删；撤销窗口内恢复引用即可还原。启动空闲阶段也要 flush 一次兜底（覆盖关页/后台定时器节流）。自动轮换淘汰仍可立即删除。
 - 文件夹模式在 IndexedDB 保存目录 handle 和文件索引。缺失权限、空目录、文件被移除、轻量缓存过期时，都不能让壁纸空白。
 - 文件夹模式不参与配置备份迁移；导出时必须移除 folder 状态和缓存引用，当前来源为 folder 时降级到 Bing。不要导出 folder handle、文件索引或 light cache。
 - 文件夹扫描和缩略图准备应离开启动热路径，通常使用 `requestIdleCallback`。
