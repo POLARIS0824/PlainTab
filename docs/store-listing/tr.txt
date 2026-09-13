@@ -82,6 +82,8 @@ Destek
 
 Son güncellemeler
 
+• v3.3.1: Galeriden duvar kağıdı silme artık 6 saniye boyunca geri alınabiliyor; art arda silmeler sayılı tek bir bildirimde birleşiyor. Yüklenen görseller, videolar ve Wallhaven öğeleri destekleniyor.
+
 • v3.3.0: Yeni sekme sayfasına günün sözünü ekler (tıklayınca değiştir, üzerine gelince kopyala), herhangi bir tuşla arama odaklanması, komut paleti ana anahtarı, Wallhaven havuzu döngüsü ve tıklayarak uygulama ile duvar kağıdını indirme düğmesi.
 
 • v3.2.3: Kullanılmayan tabs izni kaldırıldı ve PlainTab daha az izin istesin diye sürüm bilgileri güncellendi.

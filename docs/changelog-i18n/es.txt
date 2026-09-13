@@ -1,4 +1,6 @@
 Registro de cambios
+• v3.3.1 · Eliminar fondos de la galería ahora se puede deshacer durante 6 segundos; las eliminaciones seguidas se agrupan en un solo aviso con contador, para imágenes, vídeos y elementos de Wallhaven.
+
 • v3.3.0 · Añade la frase del día en la página de nueva pestaña (clic para cambiar, pasar el cursor para copiar), el enfoque del buscador con cualquier tecla, un interruptor general de la paleta de comandos, la rotación del grupo de Wallhaven con aplicación al hacer clic y un botón para descargar el fondo.
 
 • v3.2.3 · Elimina el permiso tabs no usado y actualiza los datos de lanzamiento para que PlainTab pida menos permisos.

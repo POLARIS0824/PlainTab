@@ -1,4 +1,6 @@
 Historia Aktualizacji
+• v3.3.1 · Usuwanie tapet z galerii można teraz cofnąć w ciągu 6 sekund; szybkie usuwania łączą się w jedno powiadomienie z licznikiem — dla przesłanych obrazów, filmów i elementów Wallhaven.
+
 • v3.3.0 · Dodaje cytat dnia na stronie nowej karty (kliknięcie zmienia, najechanie kopiuje), fokus wyszukiwania dowolnym klawiszem, główny przełącznik palety poleceń, rotację puli Wallhaven z ustawianiem po kliknięciu i przycisk pobierania tapety.
 
 • v3.2.3 · Usuwa nieużywane uprawnienie tabs i aktualizuje dane wydania, aby PlainTab prosił o mniej uprawnień.

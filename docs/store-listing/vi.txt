@@ -82,6 +82,8 @@ Hỗ trợ
 
 Cập nhật gần đây
 
+• v3.3.1: Xóa hình nền trong thư viện giờ có thể hoàn tác trong 6 giây; các lần xóa liên tiếp được gộp thành một thông báo có số lượng, áp dụng cho ảnh, video và mục Wallhaven đã tải lên.
+
 • v3.3.0: Thêm câu nói mỗi ngày vào trang thẻ mới (nhấp để đổi, di chuột để sao chép), tự động tập trung ô tìm kiếm bằng mọi phím, công tắc tổng cho bảng lệnh, luân chuyển kho ảnh Wallhaven với áp dụng khi nhấp và nút tải ảnh nền gốc.
 
 • v3.2.3: Xóa quyền tabs không dùng và cập nhật thông tin phát hành để PlainTab yêu cầu ít quyền hơn.

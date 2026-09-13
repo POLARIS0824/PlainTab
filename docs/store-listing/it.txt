@@ -82,6 +82,8 @@ Supporto
 
 Aggiornamenti recenti
 
+• v3.3.1: L'eliminazione degli sfondi dalla galleria ora è annullabile per 6 secondi; le eliminazioni rapide vengono raggruppate in un unico avviso con contatore, per immagini, video ed elementi Wallhaven.
+
 • v3.3.0: Aggiunge la frase del giorno nella pagina di nuova scheda (clic per cambiare, passaggio del mouse per copiare), il focus della ricerca con un tasto qualsiasi, un interruttore generale della tavolozza comandi, la rotazione della raccolta Wallhaven con applicazione al clic e un pulsante per scaricare lo sfondo.
 
 • v3.2.3: Rimuove l'autorizzazione tabs non usata e aggiorna i dati di rilascio, così PlainTab richiede meno permessi.

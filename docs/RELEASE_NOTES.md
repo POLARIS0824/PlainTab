@@ -4,6 +4,34 @@
 >
 > This file contains the detailed release notes for PlainTab, maintained in Chinese and English only. For one-line localized changelog summaries, see `docs/changelog-i18n/`.
 
+## v3.3.1
+
+### 中文
+
+**摘要**：这是一版关于「误删可挽回」的壁纸更新。图库里的删除按钮不再立刻永久删除：删除后右下角会出现可撤销的提示，6 秒内点「撤销」即可原样恢复，连续删除也能一次全部恢复。
+
+**更新内容**
+
+- 图库删除改为软删除：上传图片、上传视频与 Wallhaven 图库项在删除后先移出列表，原图延迟 6 秒才真正清理，期间点击提示上的「撤销」即可恢复，包括原来的位置、缩略图与当前壁纸指向。
+- 连续快速删除会合并为一条带数量的提示（如「已删除 3 项」），一次撤销即可全部恢复原位。
+- 删空图库回退到 Bing 后再撤销，壁纸来源与当前壁纸会一并恢复。
+- 撤销窗口过后延迟清理照常完成；即使删除后立刻关闭页面，下次打开新标签页时也会自动清理已删除且不再使用的原图，不留下占空间的残留。
+- 撤销窗口期内重新上传视频等操作不会误删新写入的文件。
+- 本次不涉及存储结构变化，`LS_VERSION` 与 IndexedDB 版本保持不变（新增的待删除清单属于可丢弃的清理状态，缺失或过期都不会影响既有数据）。
+
+### English
+
+**Summary**: This release makes wallpaper deletion forgiving. The delete button in the gallery no longer removes a wallpaper immediately: an undo notice appears in the corner after each delete, and clicking Undo within 6 seconds restores everything as it was. Several rapid deletes can be undone in one go.
+
+**Details**
+
+- Gallery deletion is now soft: uploaded images, uploaded videos, and Wallhaven items leave the list right away, while the underlying image data is kept for 6 seconds. Clicking Undo on the notice restores the item with its original position, thumbnail, and current-wallpaper pointer.
+- Rapid deletes merge into a single counted notice (such as "3 deleted"), and one Undo restores all of them.
+- If deleting the last item fell back to Bing, undoing brings the source and current wallpaper back as well.
+- Deferred cleanup always completes: even if the page is closed right after deleting, the next new tab automatically clears out deleted, no-longer-referenced images so nothing is left behind.
+- Re-uploading a video within the undo window does not mistakenly remove the newly written file.
+- No storage structure change: `LS_VERSION` and the IndexedDB version stay the same, and the new pending-deletion list is discardable cleanup state that never affects existing data.
+
 ## v3.3.0
 
 ### 中文

@@ -10,7 +10,7 @@
     // ================================================================
 
     var LS_VERSION = 3;
-    var BASELINE_APP_VERSION = '3.3.0';
+    var BASELINE_APP_VERSION = '3.3.1';
     var DB_VERSION = 1;
 
     var KEYS = {

@@ -100,7 +100,7 @@ async function testInitializesEmptyInstallAsCurrentSchema() {
   await context.WallpaperData.migrate();
   const ls = localStorage.dump();
 
-  assert.strictEqual(context.WallpaperData.BASELINE_APP_VERSION, '3.3.0');
+  assert.strictEqual(context.WallpaperData.BASELINE_APP_VERSION, '3.3.1');
   assert.strictEqual(ls.ptab_schema_version, '3');
   assert.strictEqual(context.WallpaperData.getActiveSource(), 'bing');
   assert.deepStrictEqual(context.WallpaperData.loadOrder(), []);
@@ -162,6 +162,7 @@ async function testPublicStorageConstantsExposeOnlyCurrentV3Keys() {
 
   assert.deepStrictEqual(Object.keys(context.WallpaperData.KEYS).sort(), [
     'LOCALE',
+    'PENDING_BLOB_DELETES',
     'SCHEMA_VERSION',
     'SHORTCUTS',
     'SHORTCUT_ICONS',

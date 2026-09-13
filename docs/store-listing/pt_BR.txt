@@ -82,6 +82,8 @@ Suporte
 
 Atualizações recentes
 
+• v3.3.1: Excluir papéis de parede da galeria agora pode ser desfeito por 6 segundos; exclusões em sequência são agrupadas em um único aviso com contador, cobrindo imagens, vídeos e itens do Wallhaven.
+
 • v3.3.0: Adiciona a frase do dia na página de nova guia (clique para trocar, passe o mouse para copiar), foco na busca com qualquer tecla, um interruptor geral da paleta de comandos, a rotação do acervo do Wallhaven com aplicação ao clicar e um botão para baixar o papel de parede.
 
 • v3.2.3: Remove a permissão tabs não usada e atualiza os dados da versão para que o PlainTab peça menos permissões.
